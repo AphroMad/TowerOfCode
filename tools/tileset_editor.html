@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tileset Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #ccc; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #333; flex-shrink: 0; }
+  .toolbar label { font-size: 13px; }
+  .toolbar select, .toolbar button, .toolbar input[type=file] { font-family: monospace; font-size: 13px; background: #0f3460; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+  .toolbar button:hover { background: #1a5276; }
+  .toolbar .sep { width: 1px; height: 24px; background: #444; }
+  .toolbar .status { margin-left: auto; font-size: 13px; color: #888; }
+
+  /* Main */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Canvas area */
+  .canvas-wrap { flex: 1; overflow: auto; position: relative; background: #111; }
+  .canvas-wrap canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+
+  /* Preview */
+  .preview-panel { width: 240px; background: #16213e; border-left: 1px solid #333; display: flex; flex-direction: column; }
+  .preview-panel h3 { padding: 8px; font-size: 13px; color: #888; border-bottom: 1px solid #333; }
+  .preview-content { flex: 1; overflow: auto; padding: 8px; display: flex; align-items: flex-start; justify-content: center; }
+  .preview-content canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <input type="file" id="fileInput" accept="image/*">
+  <div class="sep"></div>
+  <label>Grid: <select id="gridSize">
+    <option value="8">8</option>
+    <option value="16" selected>16</option>
+    <option value="32">32</option>
+    <option value="64">64</option>
+  </select></label>
+  <label>Zoom: <select id="zoom">
+    <option value="1">1x</option>
+    <option value="2" selected>2x</option>
+    <option value="3">3x</option>
+    <option value="4">4x</option>
+  </select></label>
+  <div class="sep"></div>
+  <button id="btnExport">Export selected</button>
+  <button id="btnExportSheet">Export as sheet</button>
+  <button id="btnClear">Clear</button>
+  <div class="status" id="status">Drop an image or use file picker</div>
+</div>
+
+<div class="main">
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="tileset"></canvas>
+  </div>
+  <div class="preview-panel">
+    <h3>Selection preview</h3>
+    <div class="preview-content">
+      <canvas id="preview"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $('tileset');
+const ctx = canvas.getContext('2d');
+const prevCanvas = $('preview');
+const prevCtx = prevCanvas.getContext('2d');
+const wrap = $('canvasWrap');
+
+let img = null;
+let grid = 16;
+let zoom = 2;
+let selected = new Set();  // "r,c" strings
+let dragStart = null;
+let dragging = false;
+let dragCurrent = null;
+
+// ── Load image ──────────────────────────────────────────────────
+
+function loadImage(src) {
+  const i = new Image();
+  i.onload = () => { img = i; selected.clear(); render(); };
+  i.src = src;
+}
+
+$('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) loadImage(URL.createObjectURL(f));
+});
+
+// Drag & drop on the whole page
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadImage(URL.createObjectURL(f));
+});
+
+$('gridSize').addEventListener('change', e => { grid = +e.target.value; selected.clear(); render(); });
+$('zoom').addEventListener('change', e => { zoom = +e.target.value; render(); });
+$('btnClear').addEventListener('click', () => { selected.clear(); render(); updatePreview(); });
+
+// ── Render ──────────────────────────────────────────────────────
+
+function render() {
+  if (!img) return;
+  const w = img.width * zoom;
+  const h = img.height * zoom;
+  canvas.width = w;
+  canvas.height = h;
+
+  // Checkerboard
+  const cs = 8 * zoom;
+  for (let y = 0; y < h; y += cs) {
+    for (let x = 0; x < w; x += cs) {
+      ctx.fillStyle = ((x / cs + y / cs) & 1) ? '#2a2a2a' : '#3a3a3a';
+      ctx.fillRect(x, y, cs, cs);
+    }
+  }
+
+  // Image
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // Grid
+  const ts = grid * zoom;
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += ts) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); }
+  for (let y = 0; y <= h; y += ts) { ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); }
+  ctx.stroke();
+
+  // Selected tiles
+  ctx.strokeStyle = '#00ff00';
+  ctx.lineWidth = 2;
+  for (const key of selected) {
+    const [r, c] = key.split(',').map(Number);
+    ctx.strokeRect(c * ts + 1, r * ts + 1, ts - 2, ts - 2);
+  }
+
+  // Drag preview
+  if (dragging && dragStart && dragCurrent) {
+    const r0 = Math.min(dragStart.r, dragCurrent.r);
+    const c0 = Math.min(dragStart.c, dragCurrent.c);
+    const r1 = Math.max(dragStart.r, dragCurrent.r);
+    const c1 = Math.max(dragStart.c, dragCurrent.c);
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(c0 * ts, r0 * ts, (c1 - c0 + 1) * ts, (r1 - r0 + 1) * ts);
+    ctx.setLineDash([]);
+  }
+
+  updateStatus();
+}
+
+// ── Mouse ───────────────────────────────────────────────────────
+
+function evtToTile(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = (e.clientX - rect.left + wrap.scrollLeft) / zoom;
+  const sy = (e.clientY - rect.top + wrap.scrollTop) / zoom;
+  // Actually, since canvas is scaled by zoom, we need raw canvas coords
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const ts = grid * zoom;
+  const c = Math.floor(x / ts);
+  const r = Math.floor(y / ts);
+  const maxC = Math.floor(img.width / grid) - 1;
+  const maxR = Math.floor(img.height / grid) - 1;
+  return { r: Math.max(0, Math.min(r, maxR)), c: Math.max(0, Math.min(c, maxC)) };
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  dragStart = evtToTile(e);
+  dragging = false;
+  dragCurrent = null;
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!dragStart) return;
+  dragging = true;
+  dragCurrent = evtToTile(e);
+  render();
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!dragStart) return;
+  const end = evtToTile(e);
+
+  if (!dragging) {
+    // Single click — toggle
+    const key = `${dragStart.r},${dragStart.c}`;
+    if (selected.has(key)) selected.delete(key); else selected.add(key);
+  } else {
+    // Drag — select range
+    const r0 = Math.min(dragStart.r, end.r), r1 = Math.max(dragStart.r, end.r);
+    const c0 = Math.min(dragStart.c, end.c), c1 = Math.max(dragStart.c, end.c);
+    for (let r = r0; r <= r1; r++)
+      for (let c = c0; c <= c1; c++)
+        selected.add(`${r},${c}`);
+  }
+
+  dragStart = null;
+  dragging = false;
+  dragCurrent = null;
+  render();
+  updatePreview();
+});
+
+// Right-click to deselect
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (!img) return;
+  const t = evtToTile(e);
+  selected.delete(`${t.r},${t.c}`);
+  render();
+  updatePreview();
+});
+
+// ── Status ──────────────────────────────────────────────────────
+
+function updateStatus() {
+  $('status').textContent = img
+    ? `${selected.size} tile${selected.size !== 1 ? 's' : ''} selected (${grid}×${grid}) — ${img.width}×${img.height}`
+    : 'Drop an image or use file picker';
+}
+
+// ── Preview ─────────────────────────────────────────────────────
+
+function updatePreview() {
+  if (!selected.size) {
+    prevCanvas.width = 0;
+    prevCanvas.height = 0;
+    return;
+  }
+
+  const tiles = [...selected].map(k => k.split(',').map(Number));
+  const rows = tiles.map(t => t[0]);
+  const cols = tiles.map(t => t[1]);
+  const minR = Math.min(...rows), maxR = Math.max(...rows);
+  const minC = Math.min(...cols), maxC = Math.max(...cols);
+
+  const tw = (maxC - minC + 1) * grid;
+  const th = (maxR - minR + 1) * grid;
+  const scale = Math.max(1, Math.min(6, Math.floor(220 / Math.max(tw, 1))));
+
+  prevCanvas.width = tw * scale;
+  prevCanvas.height = th * scale;
+  prevCtx.imageSmoothingEnabled = false;
+  prevCtx.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
+
+  for (const [r, c] of tiles) {
+    prevCtx.drawImage(img,
+      c * grid, r * grid, grid, grid,
+      (c - minC) * grid * scale, (r - minR) * grid * scale, grid * scale, grid * scale
+    );
+  }
+}
+
+// ── Export ───────────────────────────────────────────────────────
+
+$('btnExport').addEventListener('click', async () => {
+  if (!selected.size) return alert('Nothing selected');
+  const tiles = [...selected].map(k => k.split(',').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  const zip = new JSZip();
+
+  for (let i = 0; i < tiles.length; i++) {
+    const [r, c] = tiles[i];
+    const tmp = document.createElement('canvas');
+    tmp.width = grid; tmp.height = grid;
+    tmp.getContext('2d').drawImage(img, c * grid, r * grid, grid, grid, 0, 0, grid, grid);
+    const blob = await new Promise(res => tmp.toBlob(res));
+    zip.file(`tile_${String(i).padStart(4, '0')}_${r}_${c}.png`, blob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zipBlob);
+  a.download = `tiles_${grid}x${grid}_${tiles.length}.zip`;
+  a.click();
+});
+
+$('btnExportSheet').addEventListener('click', () => {
+  if (!selected.size) return alert('Nothing selected');
+  const tiles = [...selected].map(k => k.split(',').map(Number));
+  const rows = tiles.map(t => t[0]);
+  const cols = tiles.map(t => t[1]);
+  const minR = Math.min(...rows), maxR = Math.max(...rows);
+  const minC = Math.min(...cols), maxC = Math.max(...cols);
+
+  const tw = (maxC - minC + 1) * grid;
+  const th = (maxR - minR + 1) * grid;
+  const tmp = document.createElement('canvas');
+  tmp.width = tw; tmp.height = th;
+  const tctx = tmp.getContext('2d');
+
+  for (const [r, c] of tiles) {
+    tctx.drawImage(img, c * grid, r * grid, grid, grid, (c - minC) * grid, (r - minR) * grid, grid, grid);
+  }
+
+  tmp.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'selection_sheet.png';
+    a.click();
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Tower of Code</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #1a1a2e;
+        height: 100vh;
+        overflow: hidden;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      /* ── Game canvas fills the viewport ── */
+      #app {
+        width: 100vw;
+        height: 100vh;
+      }
+      #app canvas {
+        display: block;
+      }
+
+      /* ── Touch controls overlay ── */
+      .touch-controls {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        z-index: 10;
+      }
+
+      /* ── D-pad ── */
+      .dpad {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        pointer-events: auto;
+      }
+      .dpad button {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 18px;
+        cursor: pointer;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+      .dpad button:active {
+        background: rgba(255, 255, 255, 0.35);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+      .dpad-up {
+        top: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 42px; height: 42px;
+        border-radius: 6px 6px 0 0;
+      }
+      .dpad-down {
+        bottom: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 42px; height: 42px;
+        border-radius: 0 0 6px 6px;
+      }
+      .dpad-left {
+        left: 0; top: 50%;
+        transform: translateY(-50%);
+        width: 42px; height: 42px;
+        border-radius: 6px 0 0 6px;
+      }
+      .dpad-right {
+        right: 0; top: 50%;
+        transform: translateY(-50%);
+        width: 42px; height: 42px;
+        border-radius: 0 6px 6px 0;
+      }
+      .dpad-center {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 42px; height: 42px;
+        background: rgba(255, 255, 255, 0.08);
+        pointer-events: none;
+      }
+
+      /* ── A / B buttons ── */
+      .ab-buttons {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        pointer-events: auto;
+      }
+      .ab-buttons button {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        touch-action: none;
+        font-size: 18px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+      .ab-buttons button:active {
+        border-color: rgba(255, 255, 255, 0.6);
+      }
+      .btn-b {
+        background: rgba(200, 60, 60, 0.35);
+        margin-bottom: 20px;
+      }
+      .btn-b:active {
+        background: rgba(200, 60, 60, 0.6);
+      }
+      .btn-a {
+        background: rgba(200, 60, 60, 0.35);
+      }
+      .btn-a:active {
+        background: rgba(200, 60, 60, 0.6);
+      }
+
+      /* ── Language toggle ── */
+      .lang-toggle {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+        font-weight: 700;
+        font-family: monospace;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        touch-action: none;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+      .lang-toggle:active {
+        background: rgba(255, 255, 255, 0.35);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- Language toggle top-right -->
+    <button class="lang-toggle" id="lang-toggle">EN</button>
+
+    <!-- Touch controls overlaid on the game -->
+    <div class="touch-controls">
+      <div class="dpad">
+        <button class="dpad-up" aria-label="Up">&#9650;</button>
+        <button class="dpad-down" aria-label="Down">&#9660;</button>
+        <button class="dpad-left" aria-label="Left">&#9664;</button>
+        <button class="dpad-right" aria-label="Right">&#9654;</button>
+        <div class="dpad-center"></div>
+      </div>
+
+      <div class="ab-buttons">
+        <button class="btn-b" aria-label="B">B</button>
+        <button class="btn-a" aria-label="A">A</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+
+    <!-- Language toggle bridge -->
+    <script>
+      document.getElementById('lang-toggle').addEventListener('click', function () {
+        window.dispatchEvent(new CustomEvent('toggle-language'));
+      });
+    </script>
+
+    <!-- Button → keyboard event bridge -->
+    <script>
+      (function () {
+        var mapping = [
+          { sel: '.dpad-up',    key: 'ArrowUp',    code: 'ArrowUp',    keyCode: 38 },
+          { sel: '.dpad-down',  key: 'ArrowDown',  code: 'ArrowDown',  keyCode: 40 },
+          { sel: '.dpad-left',  key: 'ArrowLeft',  code: 'ArrowLeft',  keyCode: 37 },
+          { sel: '.dpad-right', key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
+          { sel: '.btn-a',      key: ' ',          code: 'Space',      keyCode: 32 },
+          { sel: '.btn-b',      key: 'Enter',      code: 'Enter',      keyCode: 13 },
+        ];
+
+        function fire(type, m) {
+          window.dispatchEvent(new KeyboardEvent(type, {
+            key: m.key,
+            code: m.code,
+            keyCode: m.keyCode,
+            which: m.keyCode,
+            bubbles: true,
+            cancelable: true,
+          }));
+        }
+
+        mapping.forEach(function (m) {
+          var btn = document.querySelector(m.sel);
+          if (!btn) return;
+
+          btn.addEventListener('pointerdown', function (e) {
+            e.preventDefault();
+            fire('keydown', m);
+          });
+          btn.addEventListener('pointerup', function (e) {
+            e.preventDefault();
+            fire('keyup', m);
+          });
+          btn.addEventListener('pointerleave', function () {
+            fire('keyup', m);
+          });
+          btn.addEventListener('touchstart', function (e) {
+            e.preventDefault();
+            fire('keydown', m);
+          }, { passive: false });
+          btn.addEventListener('touchend', function (e) {
+            e.preventDefault();
+            fire('keyup', m);
+          }, { passive: false });
+        });
+      })();
+    </script>
+  </body>
+</html>

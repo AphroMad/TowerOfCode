@@ -1,0 +1,52 @@
+{
+  "game_title": "Tower of Code",
+  "menu_start": "Press SPACE to start",
+  "menu_continue": "Continue",
+  "menu_new_game": "New Game",
+  "menu_language": "Language",
+  "floor_01_name": "The Entrance Hall",
+
+  "professor_intro": [
+    "Welcome to the Tower of Code!",
+    "I'm Professor Oak, and I'll guide you through your first lesson.",
+    "Today, we're going to learn about VARIABLES.",
+    "A variable is like a labeled box where you can store information.",
+    "For example, you could have a variable called 'age' that stores the number 12.",
+    "Let me test your knowledge with a quick question!"
+  ],
+
+  "gatekeeper_blocked": [
+    "Halt! The stairs to the next floor are behind me.",
+    "You must complete the Professor's challenge before I let you pass."
+  ],
+
+  "gatekeeper_unlocked": [
+    "Impressive! You've proven your knowledge.",
+    "The path to the next floor is now open!",
+    "...But it seems the upper floors are still under construction.",
+    "Come back soon for more challenges!"
+  ],
+
+  "hint_npc_01": [
+    "Hey there! I'm also a student here.",
+    "Tip: Variables can store different types of data - numbers, text, and more!",
+    "Good luck with the Professor's challenge!"
+  ],
+
+  "challenge_variable_question": "What is a variable in programming?",
+  "challenge_variable_opt1": "A type of computer virus",
+  "challenge_variable_opt2": "A named container that stores data",
+  "challenge_variable_opt3": "A programming language",
+  "challenge_variable_opt4": "A button on the keyboard",
+  "challenge_variable_explanation": "Correct! A variable is like a labeled box that stores data. You can give it a name and put a value inside, like: age = 12",
+
+  "challenge_correct": "Well done!",
+  "challenge_wrong": "Not quite... Try again!",
+  "challenge_title": "Challenge",
+
+  "floor_complete": "Floor Complete!",
+  "floor_complete_msg": "You've mastered this floor's challenges!",
+
+  "save_loaded": "Game loaded!",
+  "save_created": "New game started!"
+}

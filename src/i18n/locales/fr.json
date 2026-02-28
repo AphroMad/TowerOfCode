@@ -1,0 +1,52 @@
+{
+  "game_title": "Tour du Code",
+  "menu_start": "Appuyez sur ESPACE pour commencer",
+  "menu_continue": "Continuer",
+  "menu_new_game": "Nouvelle Partie",
+  "menu_language": "Langue",
+  "floor_01_name": "Le Hall d'Entrée",
+
+  "professor_intro": [
+    "Bienvenue dans la Tour du Code !",
+    "Je suis le Professeur Oak, et je vais te guider dans ta première leçon.",
+    "Aujourd'hui, nous allons découvrir les VARIABLES.",
+    "Une variable, c'est comme une boîte avec une étiquette où tu peux ranger des informations.",
+    "Par exemple, tu pourrais avoir une variable appelée 'age' qui contient le nombre 12.",
+    "Voyons si tu as bien compris avec une petite question !"
+  ],
+
+  "gatekeeper_blocked": [
+    "Halte ! L'escalier vers l'étage suivant est derrière moi.",
+    "Tu dois réussir le défi du Professeur avant que je te laisse passer."
+  ],
+
+  "gatekeeper_unlocked": [
+    "Impressionnant ! Tu as prouvé tes connaissances.",
+    "Le chemin vers l'étage suivant est maintenant ouvert !",
+    "...Mais il semble que les étages supérieurs soient encore en construction.",
+    "Reviens bientôt pour plus de défis !"
+  ],
+
+  "hint_npc_01": [
+    "Salut ! Je suis aussi un élève ici.",
+    "Astuce : Les variables peuvent stocker différents types de données - des nombres, du texte, et plus encore !",
+    "Bonne chance avec le défi du Professeur !"
+  ],
+
+  "challenge_variable_question": "Qu'est-ce qu'une variable en programmation ?",
+  "challenge_variable_opt1": "Un type de virus informatique",
+  "challenge_variable_opt2": "Un conteneur nommé qui stocke des données",
+  "challenge_variable_opt3": "Un langage de programmation",
+  "challenge_variable_opt4": "Un bouton sur le clavier",
+  "challenge_variable_explanation": "Correct ! Une variable est comme une boîte étiquetée qui stocke des données. Tu peux lui donner un nom et y mettre une valeur, comme : age = 12",
+
+  "challenge_correct": "Bien joué !",
+  "challenge_wrong": "Pas tout à fait... Essaie encore !",
+  "challenge_title": "Défi",
+
+  "floor_complete": "Étage Terminé !",
+  "floor_complete_msg": "Tu as maîtrisé les défis de cet étage !",
+
+  "save_loaded": "Partie chargée !",
+  "save_created": "Nouvelle partie commencée !"
+}

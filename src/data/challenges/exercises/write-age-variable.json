@@ -1,0 +1,14 @@
+{
+  "id": "write-age-variable",
+  "type": "code-editor",
+  "question": {
+    "en": "Write a line of code that creates a variable called 'age' with the value 25:",
+    "fr": "Écris une ligne de code qui crée une variable appelée 'age' avec la valeur 25 :"
+  },
+  "starterCode": "",
+  "expectedOutput": "age = 25",
+  "explanation": {
+    "en": "You create a variable by writing its name, an equals sign, and the value: age = 25",
+    "fr": "Tu crées une variable en écrivant son nom, un signe égal, et la valeur : age = 25"
+  }
+}

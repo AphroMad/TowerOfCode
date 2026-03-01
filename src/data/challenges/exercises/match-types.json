@@ -1,0 +1,26 @@
+{
+  "id": "match-types",
+  "type": "matching",
+  "question": {
+    "en": "Match each variable to its data type:",
+    "fr": "Associe chaque variable à son type de données :"
+  },
+  "pairs": [
+    {
+      "left": { "en": "x = 5", "fr": "x = 5" },
+      "right": { "en": "int", "fr": "int" }
+    },
+    {
+      "left": { "en": "name = \"Bob\"", "fr": "name = \"Bob\"" },
+      "right": { "en": "str", "fr": "str" }
+    },
+    {
+      "left": { "en": "is_cool = True", "fr": "is_cool = True" },
+      "right": { "en": "bool", "fr": "bool" }
+    }
+  ],
+  "explanation": {
+    "en": "Numbers are int, text in quotes is str, and True/False values are bool!",
+    "fr": "Les nombres sont des int, le texte entre guillemets est un str, et les valeurs True/False sont des bool !"
+  }
+}

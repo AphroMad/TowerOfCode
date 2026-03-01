@@ -7,6 +7,7 @@ export class MenuScene extends Phaser.Scene {
   private menuItems: Phaser.GameObjects.Text[] = []
   private selectedIndex = 0
   private cursor!: Phaser.GameObjects.Text
+  private langHandler?: () => void
 
   constructor() {
     super({ key: 'MenuScene' })
@@ -20,6 +21,16 @@ export class MenuScene extends Phaser.Scene {
 
     i18n.setLanguage(save.getData().language)
     this.cameras.main.fadeIn(300, 26, 26, 46)
+
+    // Restart scene when language is toggled via HTML button
+    this.langHandler = () => this.scene.restart()
+    window.addEventListener('toggle-language', this.langHandler)
+    this.events.on('shutdown', () => {
+      if (this.langHandler) {
+        window.removeEventListener('toggle-language', this.langHandler)
+        this.langHandler = undefined
+      }
+    })
 
     // Title
     this.add.text(cx, 100, i18n.t('game_title'), {
@@ -60,20 +71,12 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5)
 
-    // Language
-    this.add.text(cx, 410, `[${i18n.t('menu_language')}: ${i18n.getLanguage().toUpperCase()}]  press L`, {
-      fontSize: '14px',
-      color: '#888888',
-      fontFamily: 'monospace',
-    }).setOrigin(0.5)
-
     this.updateCursor()
 
     const upKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP)
     const downKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
     const spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
     const enterKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
-    const lKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.L)
 
     upKey.on('down', () => {
       this.selectedIndex = Math.max(0, this.selectedIndex - 1)
@@ -85,14 +88,6 @@ export class MenuScene extends Phaser.Scene {
     })
     spaceKey.on('down', () => this.selectItem())
     enterKey.on('down', () => this.selectItem())
-    lKey.on('down', () => {
-      const newLang = i18n.getLanguage() === 'en' ? 'fr' as const : 'en' as const
-      i18n.setLanguage(newLang)
-      save.setLanguage(newLang)
-      const btn = document.getElementById('lang-toggle')
-      if (btn) btn.textContent = newLang.toUpperCase()
-      this.scene.restart()
-    })
   }
 
   private updateCursor(): void {
@@ -120,5 +115,4 @@ export class MenuScene extends Phaser.Scene {
     SaveManager.getInstance().reset()
     this.startGame()
   }
-
 }

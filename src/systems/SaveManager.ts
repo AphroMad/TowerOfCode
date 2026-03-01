@@ -53,6 +53,11 @@ export class SaveManager {
     return this.data.completedChallenges.includes(id)
   }
 
+  setCurrentFloor(floorId: string): void {
+    this.data.currentFloor = floorId
+    this.save()
+  }
+
   setLanguage(lang: 'en' | 'fr'): void {
     this.data.language = lang
     this.save()

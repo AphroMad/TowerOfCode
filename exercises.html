@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tower of Code - Exercises</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #1a1a2e;
+        color: #cccccc;
+        font-family: 'Courier New', monospace;
+        min-height: 100vh;
+      }
+
+      /* ── List view ── */
+      .container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+
+      h1 {
+        color: #ffdd44;
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+
+      .subtitle {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 32px;
+      }
+
+      .back-link {
+        display: inline-block;
+        color: #888;
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 24px;
+      }
+      .back-link:hover { color: #ffdd44; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead th {
+        text-align: left;
+        color: #ffdd44;
+        font-size: 13px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #333;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      tbody tr {
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      tbody tr:hover {
+        background: #2a2a4e;
+      }
+
+      tbody td {
+        padding: 10px 12px;
+        font-size: 14px;
+        border-bottom: 1px solid #222;
+      }
+
+      .type-cell {
+        color: #888;
+        width: 140px;
+      }
+
+      .title-cell {
+        color: #ccc;
+      }
+      tbody tr:hover .title-cell {
+        color: #fff;
+      }
+
+      /* ── Challenge view ── */
+      #challenge-view {
+        display: none;
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      #challenge-view canvas {
+        display: block;
+      }
+
+      .challenge-back {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid #555;
+        color: #aaa;
+        font-family: monospace;
+        font-size: 14px;
+        padding: 6px 14px;
+        cursor: pointer;
+        border-radius: 4px;
+        display: none;
+      }
+      .challenge-back:hover {
+        color: #fff;
+        border-color: #ffdd44;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" id="list-view">
+      <a href="/" class="back-link">&larr; Back to game</a>
+      <h1>Exercises</h1>
+      <p class="subtitle">Click an exercise to test it</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Title</th>
+          </tr>
+        </thead>
+        <tbody id="exercise-table"></tbody>
+      </table>
+    </div>
+
+    <div id="challenge-view"></div>
+    <button class="challenge-back" id="challenge-back">&larr; Back to list</button>
+
+    <script type="module" src="/src/exercises.ts"></script>
+  </body>
+</html>

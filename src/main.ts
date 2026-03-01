@@ -5,6 +5,7 @@ import { MenuScene } from '@/scenes/MenuScene'
 import { GameScene } from '@/scenes/GameScene'
 import { DialogScene } from '@/scenes/DialogScene'
 import { ChallengeScene } from '@/scenes/ChallengeScene'
+import { TransitionScene } from '@/scenes/TransitionScene'
 import { I18nManager } from '@/i18n/I18nManager'
 import { SaveManager } from '@/systems/SaveManager'
 
@@ -25,13 +26,15 @@ new Phaser.Game({
       target: window,
     },
   },
-  scene: [BootScene, MenuScene, GameScene, DialogScene, ChallengeScene],
+  scene: [BootScene, MenuScene, GameScene, DialogScene, ChallengeScene, TransitionScene],
 })
 
 // Global language toggle — no scene interaction, just swap the language
+const FLAGS: Record<string, string> = { en: '\u{1F1EC}\u{1F1E7}', fr: '\u{1F1EB}\u{1F1F7}' }
+
 function syncLangButton() {
   const btn = document.getElementById('lang-toggle')
-  if (btn) btn.textContent = I18nManager.getInstance().getLanguage().toUpperCase()
+  if (btn) btn.textContent = FLAGS[I18nManager.getInstance().getLanguage()] ?? '\u{1F1EC}\u{1F1E7}'
 }
 
 window.addEventListener('toggle-language', () => {

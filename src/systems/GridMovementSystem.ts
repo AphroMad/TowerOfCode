@@ -94,6 +94,10 @@ export class GridMovementSystem {
     return tile !== null
   }
 
+  getPlayerTile(): { x: number; y: number } {
+    return { x: this.player.tileX, y: this.player.tileY }
+  }
+
   getFacingTile(): { x: number; y: number } {
     const offsets: Record<Direction, { x: number; y: number }> = {
       down: { x: 0, y: 1 },

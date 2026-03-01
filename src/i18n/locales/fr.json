@@ -1,27 +1,64 @@
 {
-  "game_title": "Tour du Code",
+  "game_title": "Tower of Code",
   "menu_start": "Appuyez sur ESPACE pour commencer",
   "menu_continue": "Continuer",
   "menu_new_game": "Nouvelle Partie",
+  "game_esc_menu": "[ESC] Menu",
   "menu_language": "Langue",
   "floor_01_name": "Le Hall d'Entrée",
+  "floor_02_name": "L'Étude",
 
-  "professor_intro": [
+  "professor_pi_intro": [
     "Bienvenue dans la Tour du Code !",
-    "Je suis le Professeur Oak, et je vais te guider dans ta première leçon.",
-    "Aujourd'hui, nous allons découvrir les VARIABLES.",
-    "Une variable, c'est comme une boîte avec une étiquette où tu peux ranger des informations.",
-    "Par exemple, tu pourrais avoir une variable appelée 'age' qui contient le nombre 12.",
-    "Voyons si tu as bien compris avec une petite question !"
+    "Je suis le Professeur Pi, et j'ai préparé une leçon pour toi.",
+    "Laisse-moi t'apprendre les VARIABLES avant de relever les défis !",
+    "Approche-toi de mon tableau — appuie sur ESPACE quand tu es prêt."
+  ],
+
+  "inspector_intro": [
+    "Salutations, je suis l'Inspecteur.",
+    "Le Professeur t'a parlé des variables, non ?",
+    "Voyons si tu as bien compris avec un petit quiz !"
+  ],
+
+  "npc_fill_intro": [
+    "Bonjour ! Je suis le Scribe.",
+    "J'écris du code toute la journée, et j'ai besoin de ton aide pour compléter celui-ci !",
+    "Peux-tu remplir la partie manquante de ce code ?"
+  ],
+
+  "scholar_intro": [
+    "Salut ! Je suis le Savant.",
+    "J'ai un bout de code avec un blanc à remplir.",
+    "Mais ne t'inquiète pas — je te donne des options à choisir !"
+  ],
+
+  "npc_dragdrop_intro": [
+    "Salut ! Je suis l'Architecte.",
+    "J'écrivais un programme mais mes lignes de code se sont mélangées !",
+    "Peux-tu les remettre dans le bon ordre ?"
+  ],
+
+  "npc_matching_intro": [
+    "Bienvenue ! Je suis la Bibliothécaire.",
+    "J'organise le code par type, mais aujourd'hui tout s'est mélangé.",
+    "Aide-moi à associer chaque variable à son type correct !"
+  ],
+
+  "npc_editor_intro": [
+    "Yo ! Je suis le Codeur.",
+    "Je parie que tu ne peux pas écrire une ligne de code tout seul !",
+    "Montre-moi ce que tu sais faire !"
   ],
 
   "gatekeeper_blocked": [
     "Halte ! L'escalier vers l'étage suivant est derrière moi.",
-    "Tu dois réussir le défi du Professeur avant que je te laisse passer."
+    "Tu dois réussir les SEPT défis avant que je te laisse passer.",
+    "Parle aux autres personnages dans cette salle pour commencer !"
   ],
 
   "gatekeeper_unlocked": [
-    "Impressionnant ! Tu as prouvé tes connaissances.",
+    "Impressionnant ! Tu as réussi les sept défis !",
     "Le chemin vers l'étage suivant est maintenant ouvert !",
     "...Mais il semble que les étages supérieurs soient encore en construction.",
     "Reviens bientôt pour plus de défis !"
@@ -33,12 +70,15 @@
     "Bonne chance avec le défi du Professeur !"
   ],
 
-  "challenge_variable_question": "Qu'est-ce qu'une variable en programmation ?",
-  "challenge_variable_opt1": "Un type de virus informatique",
-  "challenge_variable_opt2": "Un conteneur nommé qui stocke des données",
-  "challenge_variable_opt3": "Un langage de programmation",
-  "challenge_variable_opt4": "Un bouton sur le clavier",
-  "challenge_variable_explanation": "Correct ! Une variable est comme une boîte étiquetée qui stocke des données. Tu peux lui donner un nom et y mettre une valeur, comme : age = 12",
+  "challenge_choose_option": "Choisis la bonne valeur :",
+  "challenge_select_buggy_line": "Sélectionne la ligne avec le bug :",
+
+  "challenge_type_answer": "Tape ta réponse :",
+  "challenge_reorder_lines": "Réordonne les lignes (HAUT/BAS, ESPACE pour saisir/déposer, ENTRÉE pour valider) :",
+  "challenge_match_pairs": "Associe les paires (HAUT/BAS + ESPACE pour sélectionner) :",
+  "challenge_write_code": "Écris ton code :",
+  "challenge_expected_output": "Réponse attendue :",
+  "challenge_enter_submit": "[ENTRÉE] pour valider",
 
   "challenge_correct": "Bien joué !",
   "challenge_wrong": "Pas tout à fait... Essaie encore !",
@@ -48,5 +88,38 @@
   "floor_complete_msg": "Tu as maîtrisé les défis de cet étage !",
 
   "save_loaded": "Partie chargée !",
-  "save_created": "Nouvelle partie commencée !"
+  "save_created": "Nouvelle partie commencée !",
+
+  "stairs_coming_soon": "Les étages supérieurs sont encore en construction...",
+  "stairs_blocked": "Termine tous les défis avant de monter !",
+
+  "explorer_flavor": [
+    "Je parcours ces couloirs depuis une éternité !",
+    "Chaque labyrinthe a un motif — il suffit de le trouver.",
+    "Continue d'explorer, et n'aie pas peur des impasses !"
+  ],
+
+  "cartographer_flavor": [
+    "Ah, un autre voyageur ! Je cartographie tout cet étage.",
+    "Tu savais ? Les meilleurs codeurs naviguent la complexité comme un labyrinthe.",
+    "Gauche ou droite — les deux chemins mènent quelque part d'intéressant."
+  ],
+
+  "philosopher_flavor": [
+    "En code, comme dans les labyrinthes, le voyage compte plus que la destination.",
+    "Une variable est comme un carrefour — elle peut mener n'importe où.",
+    "Prends ton temps. Se presser mène aux bugs... et aux impasses."
+  ],
+
+  "guide_flavor": [
+    "Perdu ? Ne t'inquiète pas, ça fait partie de l'apprentissage !",
+    "Astuce : découpe les gros problèmes en petits morceaux, comme les salles d'un labyrinthe.",
+    "Tu t'en sors très bien — la sortie est plus proche que tu ne le penses !"
+  ],
+
+  "keeper_flavor": [
+    "Bienvenue dans L'Étude. Je veille sur cet étage.",
+    "Beaucoup sont passés par ici, chacun apprenant quelque chose de nouveau.",
+    "Les murs enseignent la patience. Les chemins enseignent la persévérance."
+  ]
 }

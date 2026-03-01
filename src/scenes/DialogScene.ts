@@ -1,11 +1,12 @@
 import Phaser from 'phaser'
 import { DialogSystem } from '@/systems/DialogSystem'
 import { I18nManager } from '@/i18n/I18nManager'
+import type { ChallengeConfig } from '@/data/types'
 
 interface DialogSceneData {
   dialogKey: string
   npcName: string
-  challengeId?: string
+  challengeConfig?: ChallengeConfig
   npcRole?: string
 }
 
@@ -87,10 +88,10 @@ export class DialogScene extends Phaser.Scene {
   private onDialogComplete(): void {
     this.dialogSystem.destroy()
 
-    if (this.sceneData.challengeId) {
+    if (this.sceneData.challengeConfig) {
       this.scene.stop()
       this.scene.launch('ChallengeScene', {
-        challengeId: this.sceneData.challengeId,
+        challengeConfig: this.sceneData.challengeConfig,
       })
     } else {
       this.scene.stop()

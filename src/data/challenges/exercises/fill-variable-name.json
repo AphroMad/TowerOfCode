@@ -1,0 +1,14 @@
+{
+  "id": "fill-variable-name",
+  "type": "fill-in-blank",
+  "question": {
+    "en": "Complete the code to assign the name \"Alice\" to the variable:",
+    "fr": "Complète le code pour assigner le nom \"Alice\" à la variable :"
+  },
+  "codeTemplate": "name = ___",
+  "acceptedAnswers": ["\"Alice\"", "'Alice'", "\"alice\"", "'alice'"],
+  "explanation": {
+    "en": "A string value must be wrapped in quotes. Both 'Alice' and \"Alice\" work in Python!",
+    "fr": "Une valeur texte doit être entourée de guillemets. 'Alice' et \"Alice\" fonctionnent en Python !"
+  }
+}

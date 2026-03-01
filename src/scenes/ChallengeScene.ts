@@ -1,16 +1,19 @@
 import Phaser from 'phaser'
 import { createChallenge } from '@/challenges/ChallengeRegistry'
 import type { IChallenge } from '@/challenges/IChallenge'
-import { floor01 } from '@/data/floors/floor-01'
+import type { ChallengeConfig } from '@/data/types'
 import { SaveManager } from '@/systems/SaveManager'
 import { I18nManager } from '@/i18n/I18nManager'
 
 interface ChallengeSceneData {
-  challengeId: string
+  challengeConfig: ChallengeConfig
+  returnScene?: string
 }
 
 export class ChallengeScene extends Phaser.Scene {
   private challenge: IChallenge | null = null
+  private escKey?: Phaser.Input.Keyboard.Key
+  private returnScene = 'GameScene'
 
   constructor() {
     super({ key: 'ChallengeScene' })
@@ -21,7 +24,7 @@ export class ChallengeScene extends Phaser.Scene {
     const i18n = I18nManager.getInstance()
 
     // Background
-    this.add.rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x111122, 0.95)
+    this.add.rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x111122)
       .setDepth(10)
 
     // Title
@@ -31,8 +34,26 @@ export class ChallengeScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(11)
 
-    // Find challenge config
-    const config = floor01.challenges.find(c => c.id === data.challengeId)
+    // Close button (X) — top right
+    const closeBtn = this.add.text(cam.width - 20, 16, 'X', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: 'monospace',
+      backgroundColor: '#333344',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(1, 0).setDepth(15).setInteractive({ useHandCursor: true })
+
+    closeBtn.on('pointerover', () => closeBtn.setColor('#ff4444'))
+    closeBtn.on('pointerout', () => closeBtn.setColor('#888888'))
+    closeBtn.on('pointerdown', () => this.closeScene())
+
+    // ESC key also closes
+    this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
+    this.escKey.on('down', () => this.closeScene())
+
+    this.returnScene = data.returnScene ?? 'GameScene'
+
+    const config = data.challengeConfig
     if (!config) {
       this.closeScene()
       return
@@ -49,8 +70,8 @@ export class ChallengeScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.challenge && 'update' in this.challenge) {
-      (this.challenge as { update(): void }).update()
+    if (this.challenge) {
+      this.challenge.update()
     }
   }
 
@@ -59,7 +80,11 @@ export class ChallengeScene extends Phaser.Scene {
       this.challenge.destroy()
       this.challenge = null
     }
+    if (this.escKey) {
+      this.input.keyboard!.removeKey(this.escKey)
+      this.escKey = undefined
+    }
     this.scene.stop()
-    this.scene.resume('GameScene')
+    this.scene.resume(this.returnScene)
   }
 }

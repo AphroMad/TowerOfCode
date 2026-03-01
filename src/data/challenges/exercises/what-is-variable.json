@@ -1,0 +1,30 @@
+{
+  "id": "what-is-variable",
+  "type": "multiple-choice",
+  "question": {
+    "en": "What is a variable in programming?",
+    "fr": "Qu'est-ce qu'une variable en programmation ?"
+  },
+  "options": [
+    {
+      "text": { "en": "A type of computer virus", "fr": "Un type de virus informatique" },
+      "correct": false
+    },
+    {
+      "text": { "en": "A named container that stores data", "fr": "Un conteneur nommé qui stocke des données" },
+      "correct": true
+    },
+    {
+      "text": { "en": "A programming language", "fr": "Un langage de programmation" },
+      "correct": false
+    },
+    {
+      "text": { "en": "A button on the keyboard", "fr": "Un bouton sur le clavier" },
+      "correct": false
+    }
+  ],
+  "explanation": {
+    "en": "Correct! A variable is like a labeled box that stores data. You can give it a name and put a value inside, like: age = 12",
+    "fr": "Correct ! Une variable est comme une boîte étiquetée qui stocke des données. Tu peux lui donner un nom et y mettre une valeur, comme : age = 12"
+  }
+}

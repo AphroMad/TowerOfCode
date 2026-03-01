@@ -1,0 +1,17 @@
+{
+  "id": "order-variable-code",
+  "type": "drag-drop",
+  "question": {
+    "en": "Put these lines in the correct order to create and print variables:",
+    "fr": "Remets ces lignes dans le bon ordre pour créer et afficher des variables :"
+  },
+  "correctOrder": [
+    "name = \"Alice\"",
+    "age = 25",
+    "print(name, age)"
+  ],
+  "explanation": {
+    "en": "First you assign values to variables, then you can use them with print()!",
+    "fr": "D'abord tu assignes des valeurs aux variables, puis tu peux les utiliser avec print() !"
+  }
+}

@@ -22,6 +22,9 @@ export class NPC {
       row * 4 // idle frame for this direction
     )
     this.sprite.setOrigin(0.5, 0.75)
+    if (npcData.tint != null) {
+      this.sprite.setTint(npcData.tint)
+    }
     this.createAnimations(scene)
   }
 

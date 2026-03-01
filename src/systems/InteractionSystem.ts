@@ -37,10 +37,8 @@ export class InteractionSystem {
     const npc = this.findNPCAt(facingTile.x, facingTile.y)
 
     if (npc) {
-      npc.facePlayer(
-        facingTile.x - (facingTile.x - npc.data.tileX),
-        facingTile.y - (facingTile.y - npc.data.tileY)
-      )
+      const playerTile = this.gridMovement.getPlayerTile()
+      npc.facePlayer(playerTile.x, playerTile.y)
       this.scene.events.emit('npc-interact', npc)
     }
   }

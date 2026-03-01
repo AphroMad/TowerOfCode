@@ -1,0 +1,14 @@
+Here are rooms ideas for each floor, this is inspired from pokemon gym, doesn't have to be one of those, just a list to help me : 
+- one panel with a question, 3 possible answers, one for each door, you choose the door with the right answer to go to the next room, if you choose the wrong one you can try again or go back to the previous room.
+- room with 3 buttons that represent types or simple concepts, user need to stay on the button for a few seconds to validate the answer and go to the next room, if they choose the wrong one they can try again
+- simple static maze 
+- moving character that can detect you ? (not sure cause need to implement detection and shit)
+- moving obstacle / paths puzzle (again, hard to do cause drawings and shit)
+- maze teleporting door 
+- maze with directional platform, you walk on it, it makes you move in a direction 
+- maze with lights switching off ? 
+- maze with ground that call fall and a detector to not fuck up 
+- sliding on ice puzzle (you can move moving ice rocks and stuck them to find the solution)
+- gym where you can move element like rocks or put them in holes 
+- TV quizz game with 3-4 answers possible ? 
+- walk on every cell once but not twice puzzle 

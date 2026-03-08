@@ -4,7 +4,6 @@ export const floor02: FloorData = {
   id: 'floor-02',
   name: 'The Study',
   mapKey: 'floor-02',
-  tilesetKey: 'tiles',
   playerStart: { tileX: 10, tileY: 12, facing: 'up' },
   npcs: [
     {

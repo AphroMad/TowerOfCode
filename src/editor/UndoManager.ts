@@ -2,8 +2,9 @@ import type { EditorState } from './EditorState'
 import type { NPCData, StairData } from '@/data/types'
 
 interface Snapshot {
-  groundLayer: number[]
-  wallsLayer: number[]
+  groundLayer: string[]
+  wallsLayer: string[]
+  effectsLayer: number[]
   playerSpawn: { tileX: number; tileY: number; facing: string } | null
   npcs: NPCData[]
   stairs: StairData[]
@@ -26,6 +27,7 @@ export class UndoManager {
     return {
       groundLayer: [...d.groundLayer],
       wallsLayer: [...d.wallsLayer],
+      effectsLayer: [...d.effectsLayer],
       playerSpawn: d.playerSpawn ? { ...d.playerSpawn } : null,
       npcs: d.npcs.map(n => ({
         ...n,
@@ -64,6 +66,7 @@ export class UndoManager {
     this.state.mutateQuiet(d => {
       d.groundLayer = [...snap.groundLayer]
       d.wallsLayer = [...snap.wallsLayer]
+      d.effectsLayer = [...snap.effectsLayer]
       d.playerSpawn = snap.playerSpawn ? { ...snap.playerSpawn } as typeof d.playerSpawn : null
       d.npcs = snap.npcs.map(n => ({
         ...n,

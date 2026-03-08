@@ -275,7 +275,11 @@ export class Toolbar {
       parts.push(`Tool: ${d.activeTool}`)
     }
     if (d.activeTool === 'brush') {
-      parts.push(`Tile #${d.selectedTileId}`)
+      if (d.activeLayer === 'effects') {
+        parts.push(`Effect: ${d.selectedEffectId}`)
+      } else {
+        parts.push(`Tile: ${d.selectedTileKey || '(empty)'}`)
+      }
     }
     this.statusEl.textContent = parts.join('  |  ')
   }

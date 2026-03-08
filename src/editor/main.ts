@@ -75,8 +75,8 @@ for (const toggle of toggles) {
   btn.className = 'editor-btn editor-btn-sm'
   const update = () => {
     const visible = state.snapshot[toggle.key]
-    btn.textContent = `${visible ? '\u25C9' : '\u25CB'} ${toggle.label}`
-    btn.style.opacity = visible ? '1' : '0.5'
+    btn.textContent = `${visible ? '✓' : '✕'} ${toggle.label}`
+    btn.style.opacity = visible ? '1' : '0.45'
   }
   btn.addEventListener('click', () => {
     state.mutate(d => { (d[toggle.key] as boolean) = !d[toggle.key] })

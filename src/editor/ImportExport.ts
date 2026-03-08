@@ -4,6 +4,22 @@ import type { Direction, NPCData, StairData } from '@/data/types'
 const AUTOSAVE_KEY = 'editor_autosave'
 const AUTOSAVE_DEBOUNCE = 1000
 
+/** Legacy numeric tile ID → new string key mapping */
+const LEGACY_ID_MAP: Record<number, string> = {
+  0: '',
+  1: 'ground/basic/1',
+  2: 'ground/basic/2',
+  3: 'ground/basic/3',
+  4: 'ground/basic/4',
+  5: 'ground/basic/5',
+  6: 'ground/basic/6',
+  7: 'ground/basic/7',
+  8: 'ground/basic/8',
+  9: 'ground/basic/9',
+  10: 'objects/rock',
+  11: 'objects/collision_invisible',
+}
+
 export class ImportExport {
   private state: EditorState
   private saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -47,11 +63,16 @@ export class ImportExport {
     if (!raw) return false
     try {
       const data = JSON.parse(raw)
+
+      // Migrate legacy number[] layers to string[]
+      const groundLayer = this.migrateLayer(data.groundLayer, MAP_W * MAP_H, '')
+      const wallsLayer = this.migrateLayer(data.wallsLayer, MAP_W * MAP_H, '')
+
       this.state.loadState({
         floorId: data.floorId || 'floor-01',
         floorName: data.floorName || 'New Floor',
-        groundLayer: data.groundLayer || new Array(MAP_W * MAP_H).fill(0),
-        wallsLayer: data.wallsLayer || new Array(MAP_W * MAP_H).fill(0),
+        groundLayer,
+        wallsLayer,
         effectsLayer: data.effectsLayer || new Array(MAP_W * MAP_H).fill(0),
         playerSpawn: data.playerSpawn || null,
         npcs: (data.npcs || []).map((n: Record<string, unknown>) => ({
@@ -66,8 +87,21 @@ export class ImportExport {
     }
   }
 
+  /** Convert legacy number[] to string[], or pass through if already string[] */
+  private migrateLayer(layer: unknown[] | undefined, size: number, fallback: string): string[] {
+    if (!layer || !Array.isArray(layer)) return new Array(size).fill(fallback)
+    if (layer.length === 0) return new Array(size).fill(fallback)
+
+    // Detect legacy: first non-empty value is a number
+    if (typeof layer[0] === 'number') {
+      return (layer as number[]).map(id => LEGACY_ID_MAP[id] ?? '')
+    }
+
+    // Already string[]
+    return layer as string[]
+  }
+
   clearAll(): void {
-    // Remove all editor-related localStorage keys
     const toRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
@@ -80,56 +114,41 @@ export class ImportExport {
 
   exportMapJson(): string {
     const d = this.state.snapshot
-    const hasRock = d.groundLayer.includes(10) || d.wallsLayer.includes(10)
-    const hasInvisible = d.groundLayer.includes(11) || d.wallsLayer.includes(11)
 
-    const tilesets: object[] = [
-      {
-        columns: 9,
-        firstgid: 1,
-        image: '../../tilesets/tileset.png',
-        imageheight: 32,
-        imagewidth: 288,
-        margin: 0,
-        name: 'tileset',
-        spacing: 0,
-        tilecount: 9,
-        tileheight: 32,
-        tilewidth: 32,
-      },
-    ]
+    // Collect all unique tile keys used across both layers
+    const usedKeys = new Set<string>()
+    for (const key of d.groundLayer) if (key !== '') usedKeys.add(key)
+    for (const key of d.wallsLayer) if (key !== '') usedKeys.add(key)
 
-    if (hasRock) {
+    // Sort for deterministic GID assignment
+    const sortedKeys = [...usedKeys].sort()
+
+    // Assign GIDs: each tile key gets its own tileset entry with firstgid
+    const keyToGid = new Map<string, number>()
+    const tilesets: object[] = []
+    let nextGid = 1
+
+    for (const key of sortedKeys) {
+      keyToGid.set(key, nextGid)
       tilesets.push({
         columns: 1,
-        firstgid: 10,
-        image: '../../tilesets/rock.png',
+        firstgid: nextGid,
+        image: `../../assets/tilesets/${key}.png`,
         imageheight: 32,
         imagewidth: 32,
         margin: 0,
-        name: 'rock',
+        name: key,
         spacing: 0,
         tilecount: 1,
         tileheight: 32,
         tilewidth: 32,
       })
+      nextGid++
     }
 
-    if (hasInvisible) {
-      tilesets.push({
-        columns: 1,
-        firstgid: 11,
-        image: '../../tilesets/collision_invisible.png',
-        imageheight: 32,
-        imagewidth: 32,
-        margin: 0,
-        name: 'collision_invisible',
-        spacing: 0,
-        tilecount: 1,
-        tileheight: 32,
-        tilewidth: 32,
-      })
-    }
+    // Convert string layers to GID number layers
+    const toGidLayer = (layer: readonly string[]): number[] =>
+      layer.map(key => key === '' ? 0 : (keyToGid.get(key) ?? 0))
 
     const map = {
       compressionlevel: -1,
@@ -147,7 +166,7 @@ export class ImportExport {
       nextobjectid: 1,
       layers: [
         {
-          data: [...d.groundLayer],
+          data: toGidLayer(d.groundLayer),
           height: MAP_H,
           width: MAP_W,
           id: 1,
@@ -159,7 +178,7 @@ export class ImportExport {
           y: 0,
         },
         {
-          data: [...d.wallsLayer],
+          data: toGidLayer(d.wallsLayer),
           height: MAP_H,
           width: MAP_W,
           id: 2,
@@ -246,7 +265,6 @@ export const ${varName}: FloorData = {
   id: '${d.floorId}',
   name: '${d.floorName}',
   mapKey: '${d.floorId}',
-  tilesetKey: 'tiles',
   playerStart: { tileX: ${spawn.tileX}, tileY: ${spawn.tileY}, facing: '${spawn.facing}' },
   npcs: [
 ${npcStr}
@@ -269,9 +287,34 @@ ${stairStr}
       const groundData = map.layers?.find((l: { name: string }) => l.name === 'Ground')
       const wallsData = map.layers?.find((l: { name: string }) => l.name === 'Walls')
 
+      // Build GID → key mapping from tilesets
+      const gidToKey = new Map<number, string>()
+      if (map.tilesets) {
+        for (const ts of map.tilesets as { firstgid: number; name: string; tilecount: number }[]) {
+          // Legacy format: tileset with tilecount > 1 (old spritesheet)
+          if (ts.name === 'tileset' && ts.tilecount === 9) {
+            for (let i = 0; i < 9; i++) {
+              gidToKey.set(ts.firstgid + i, `ground/basic/${i + 1}`)
+            }
+          } else if (ts.name === 'rock') {
+            gidToKey.set(ts.firstgid, 'objects/rock')
+          } else if (ts.name === 'collision_invisible') {
+            gidToKey.set(ts.firstgid, 'objects/collision_invisible')
+          } else {
+            // New format: name IS the tile key, tilecount=1
+            gidToKey.set(ts.firstgid, ts.name)
+          }
+        }
+      }
+
+      const convertLayer = (data: number[] | undefined): string[] => {
+        if (!data) return new Array(MAP_W * MAP_H).fill('')
+        return data.map(gid => gid === 0 ? '' : (gidToKey.get(gid) ?? ''))
+      }
+
       this.state.loadState({
-        groundLayer: groundData?.data ? [...groundData.data] : new Array(MAP_W * MAP_H).fill(0),
-        wallsLayer: wallsData?.data ? [...wallsData.data] : new Array(MAP_W * MAP_H).fill(0),
+        groundLayer: convertLayer(groundData?.data),
+        wallsLayer: convertLayer(wallsData?.data),
       })
       return true
     } catch {
@@ -321,7 +364,7 @@ ${stairStr}
               y: parseInt(m[2]),
             }))
           }
-          // Bounds check — skip NPCs with invalid positions
+          // Bounds check
           if (npc.tileX >= 0 && npc.tileX < MAP_W && npc.tileY >= 0 && npc.tileY < MAP_H) {
             npcs.push(npc)
           }

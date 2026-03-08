@@ -1,32 +1,8 @@
 import type { EditorState, LayerName } from './EditorState'
+import { getTilesByCategory, getFolders, type TileDef } from '@/data/tiles/TileRegistry'
+import { loadAllTileImages, getTileImage } from './tileImageCache'
 
-const TILE_SIZE = 32
 const DISPLAY_SIZE = 48
-
-interface TileEntry {
-  id: number
-  label: string
-  folder: string
-}
-
-const GROUND_TILES: TileEntry[] = [
-  { id: 0, label: 'Empty', folder: 'Tools' },
-  { id: 1, label: 'Ground 1', folder: 'Basic' },
-  { id: 2, label: 'Ground 2', folder: 'Basic' },
-  { id: 3, label: 'Ground 3', folder: 'Basic' },
-  { id: 4, label: 'Ground 4', folder: 'Basic' },
-  { id: 5, label: 'Ground 5', folder: 'Basic' },
-  { id: 6, label: 'Ground 6', folder: 'Basic' },
-  { id: 7, label: 'Ground 7', folder: 'Basic' },
-  { id: 8, label: 'Ground 8', folder: 'Basic' },
-  { id: 9, label: 'Ground 9', folder: 'Basic' },
-]
-
-const OBJECT_TILES: TileEntry[] = [
-  { id: 0, label: 'Empty', folder: 'Tools' },
-  { id: 10, label: 'Rock', folder: 'Obstacles' },
-  { id: 11, label: 'Invisible Wall', folder: 'Collision' },
-]
 
 interface EffectEntry {
   id: number
@@ -58,8 +34,6 @@ interface FolderGroup {
 export class TilePalette {
   private container: HTMLElement
   private state: EditorState
-  private tilesetImg: HTMLImageElement
-  private rockImg: HTMLImageElement
 
   private groundSection: HTMLElement | null = null
   private objectSection: HTMLElement | null = null
@@ -69,8 +43,8 @@ export class TilePalette {
   private objectFolders: FolderGroup[] = []
   private effectFolders: FolderGroup[] = []
 
-  private groundCells: { canvas: HTMLCanvasElement; tileId: number }[] = []
-  private objectCells: { canvas: HTMLCanvasElement; tileId: number }[] = []
+  private groundCells: { canvas: HTMLCanvasElement; tileKey: string }[] = []
+  private objectCells: { canvas: HTMLCanvasElement; tileKey: string }[] = []
   private effectCells: { canvas: HTMLCanvasElement; effectId: number }[] = []
 
   private searchInput: HTMLInputElement | null = null
@@ -79,30 +53,14 @@ export class TilePalette {
     this.container = container
     this.state = state
 
-    this.tilesetImg = new Image()
-    this.rockImg = new Image()
-
     this.buildLayerButtons(container)
     this.buildSearchBar(container)
 
-    this.loadImages()
+    loadAllTileImages()
       .then(() => this.buildAllPalettes())
       .catch(err => console.error('TilePalette: failed to load images', err))
 
     state.onChange(() => this.updateView())
-  }
-
-  private async loadImages(): Promise<void> {
-    const load = (img: HTMLImageElement, src: string) =>
-      new Promise<void>((res, rej) => {
-        img.onload = () => res()
-        img.onerror = () => rej(new Error(`Failed to load image: ${src}`))
-        img.src = src
-      })
-    await Promise.all([
-      load(this.tilesetImg, 'assets/tilesets/tileset.png'),
-      load(this.rockImg, 'assets/tilesets/rock.png'),
-    ])
   }
 
   private buildLayerButtons(container: HTMLElement): void {
@@ -153,36 +111,88 @@ export class TilePalette {
   }
 
   private buildAllPalettes(): void {
-    // Ground palette
+    // Ground palette — built from registry
     this.groundSection = document.createElement('div')
-    this.groundFolders = this.buildTileSection(this.groundSection, GROUND_TILES, 'ground')
+    this.groundFolders = this.buildTileSection(this.groundSection, 'ground', 'ground')
     this.container.appendChild(this.groundSection)
 
-    // Object palette
+    // Object palette — built from registry
     this.objectSection = document.createElement('div')
-    this.objectFolders = this.buildTileSection(this.objectSection, OBJECT_TILES, 'walls')
+    this.objectFolders = this.buildTileSection(this.objectSection, 'objects', 'walls')
     this.container.appendChild(this.objectSection)
 
-    // Effects palette
+    // Effects palette — stays hardcoded
     this.effectSection = document.createElement('div')
     this.effectFolders = this.buildEffectSection(this.effectSection)
     this.container.appendChild(this.effectSection)
 
-    this.addSeparator(this.container)
     this.updateView()
   }
 
-  private buildTileSection(parent: HTMLElement, tiles: TileEntry[], targetLayer: LayerName): FolderGroup[] {
+  private buildTileSection(parent: HTMLElement, category: string, targetLayer: LayerName): FolderGroup[] {
     const folders: FolderGroup[] = []
-    const grouped = this.groupByFolder(tiles)
+    const folderNames = getFolders(category)
+    const allTiles = getTilesByCategory(category)
 
-    for (const [folderName, folderTiles] of grouped) {
+    // "Empty" tool — always first
+    const toolsFolder = document.createElement('div')
+    toolsFolder.className = 'tile-folder'
+    const toolsHeader = document.createElement('div')
+    toolsHeader.className = 'tile-folder-header'
+    toolsHeader.textContent = 'Tools'
+    toolsFolder.appendChild(toolsHeader)
+    const toolsGrid = document.createElement('div')
+    toolsGrid.className = 'tile-grid'
+
+    const emptyWrapper = document.createElement('div')
+    emptyWrapper.className = 'tile-cell-wrapper'
+    const emptyCanvas = document.createElement('canvas')
+    emptyCanvas.width = DISPLAY_SIZE
+    emptyCanvas.height = DISPLAY_SIZE
+    emptyCanvas.style.cursor = 'pointer'
+    emptyCanvas.style.border = '2px solid transparent'
+    emptyCanvas.style.borderRadius = '3px'
+    emptyCanvas.title = 'Empty'
+    this.drawEmptyCell(emptyCanvas)
+    emptyCanvas.addEventListener('click', () => {
+      this.state.mutate(d => {
+        d.selectedTileKey = ''
+        d.activeTool = 'eraser'
+        d.activeLayer = targetLayer
+        d.placingEntity = null
+      })
+    })
+    emptyWrapper.appendChild(emptyCanvas)
+    const emptyLabel = document.createElement('span')
+    emptyLabel.className = 'tile-cell-label'
+    emptyLabel.textContent = 'Empty'
+    emptyWrapper.appendChild(emptyLabel)
+    toolsGrid.appendChild(emptyWrapper)
+    toolsFolder.appendChild(toolsGrid)
+    parent.appendChild(toolsFolder)
+
+    const toolsCells: CellData[] = [{ wrapper: emptyWrapper, label: 'Empty' }]
+    if (targetLayer === 'ground') {
+      this.groundCells.push({ canvas: emptyCanvas, tileKey: '' })
+    } else {
+      this.objectCells.push({ canvas: emptyCanvas, tileKey: '' })
+    }
+    folders.push({ container: toolsFolder, cells: toolsCells })
+
+    // Build a folder group for each subfolder
+    for (const folderName of folderNames) {
+      const tiles = allTiles.filter(t => t.folder === folderName)
+      if (tiles.length === 0) continue
+
       const folderContainer = document.createElement('div')
       folderContainer.className = 'tile-folder'
 
       const header = document.createElement('div')
       header.className = 'tile-folder-header'
+      // Pretty-print folder name
       header.textContent = folderName
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase())
       folderContainer.appendChild(header)
 
       const grid = document.createElement('div')
@@ -190,7 +200,7 @@ export class TilePalette {
 
       const cells: CellData[] = []
 
-      for (const tile of folderTiles) {
+      for (const tile of tiles) {
         const wrapper = document.createElement('div')
         wrapper.className = 'tile-cell-wrapper'
 
@@ -202,12 +212,12 @@ export class TilePalette {
         cell.style.borderRadius = '3px'
         cell.title = tile.label
 
-        this.drawTileOnCanvas(cell, tile.id)
+        this.drawTileOnCanvas(cell, tile)
 
         cell.addEventListener('click', () => {
           this.state.mutate(d => {
-            d.selectedTileId = tile.id
-            d.activeTool = tile.id === 0 ? 'eraser' : 'brush'
+            d.selectedTileKey = tile.key
+            d.activeTool = 'brush'
             d.activeLayer = targetLayer
             d.placingEntity = null
           })
@@ -224,9 +234,9 @@ export class TilePalette {
         cells.push({ wrapper, label: tile.label })
 
         if (targetLayer === 'ground') {
-          this.groundCells.push({ canvas: cell, tileId: tile.id })
+          this.groundCells.push({ canvas: cell, tileKey: tile.key })
         } else {
-          this.objectCells.push({ canvas: cell, tileId: tile.id })
+          this.objectCells.push({ canvas: cell, tileKey: tile.key })
         }
       }
 
@@ -272,7 +282,7 @@ export class TilePalette {
 
         cell.addEventListener('click', () => {
           this.state.mutate(d => {
-            d.selectedTileId = eff.id
+            d.selectedEffectId = eff.id
             d.activeTool = eff.id === 0 ? 'eraser' : 'brush'
             d.activeLayer = 'effects'
             d.placingEntity = null
@@ -299,32 +309,32 @@ export class TilePalette {
     return folders
   }
 
-  private drawTileOnCanvas(cell: HTMLCanvasElement, tileId: number): void {
+  private drawEmptyCell(cell: HTMLCanvasElement): void {
+    const ctx = cell.getContext('2d')!
+    ctx.imageSmoothingEnabled = false
+    ctx.fillStyle = '#222'
+    ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
+    ctx.strokeStyle = '#555'
+    ctx.lineWidth = 1
+    for (let i = -DISPLAY_SIZE; i < DISPLAY_SIZE * 2; i += 8) {
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i + DISPLAY_SIZE, DISPLAY_SIZE)
+      ctx.stroke()
+    }
+    ctx.fillStyle = '#888'
+    ctx.font = '10px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('\u2205', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
+  }
+
+  private drawTileOnCanvas(cell: HTMLCanvasElement, tile: TileDef): void {
     const ctx = cell.getContext('2d')!
     ctx.imageSmoothingEnabled = false
 
-    if (tileId === 0) {
-      ctx.fillStyle = '#222'
-      ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
-      ctx.strokeStyle = '#555'
-      ctx.lineWidth = 1
-      for (let i = -DISPLAY_SIZE; i < DISPLAY_SIZE * 2; i += 8) {
-        ctx.beginPath()
-        ctx.moveTo(i, 0)
-        ctx.lineTo(i + DISPLAY_SIZE, DISPLAY_SIZE)
-        ctx.stroke()
-      }
-      ctx.fillStyle = '#888'
-      ctx.font = '10px monospace'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('\u2205', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
-    } else if (tileId >= 1 && tileId <= 9) {
-      const sx = (tileId - 1) * TILE_SIZE
-      ctx.drawImage(this.tilesetImg, sx, 0, TILE_SIZE, TILE_SIZE, 0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
-    } else if (tileId === 10) {
-      ctx.drawImage(this.rockImg, 0, 0, TILE_SIZE, TILE_SIZE, 0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
-    } else if (tileId === 11) {
+    if (tile.key === 'objects/collision_invisible') {
+      // Special procedural rendering
       ctx.fillStyle = '#221111'
       ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
       ctx.strokeStyle = 'rgba(255, 60, 60, 0.5)'
@@ -348,27 +358,28 @@ export class TilePalette {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText('INV', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
+      return
+    }
+
+    const img = getTileImage(tile.key)
+    if (img) {
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
+    } else {
+      // Fallback: pink square with ?
+      ctx.fillStyle = '#cc44cc'
+      ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 16px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
     }
   }
 
   private drawEffectOnCanvas(cell: HTMLCanvasElement, eff: EffectEntry): void {
     const ctx = cell.getContext('2d')!
     if (eff.id === 0) {
-      ctx.fillStyle = '#222'
-      ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
-      ctx.strokeStyle = '#555'
-      ctx.lineWidth = 1
-      for (let i = -DISPLAY_SIZE; i < DISPLAY_SIZE * 2; i += 8) {
-        ctx.beginPath()
-        ctx.moveTo(i, 0)
-        ctx.lineTo(i + DISPLAY_SIZE, DISPLAY_SIZE)
-        ctx.stroke()
-      }
-      ctx.fillStyle = '#888'
-      ctx.font = '10px monospace'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('\u2205', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
+      this.drawEmptyCell(cell)
     } else {
       ctx.fillStyle = eff.color
       ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
@@ -428,9 +439,9 @@ export class TilePalette {
     if (this.objectSection) this.objectSection.style.display = layer === 'walls' ? '' : 'none'
     if (this.effectSection) this.effectSection.style.display = layer === 'effects' ? '' : 'none'
 
-    // Show/hide search bar (not useful for entities layer)
+    // Search bar always visible (entities layer uses it too via EntityPanel)
     if (this.searchInput) {
-      this.searchInput.style.display = layer === 'entities' ? 'none' : ''
+      this.searchInput.style.display = ''
     }
 
     // Apply search filter
@@ -444,18 +455,18 @@ export class TilePalette {
     const d = this.state.snapshot
     const isActive = d.activeTool === 'brush' || d.activeTool === 'eraser'
 
-    for (const { canvas, tileId } of this.groundCells) {
-      const selected = isActive && d.activeLayer === 'ground' && d.selectedTileId === tileId
+    for (const { canvas, tileKey } of this.groundCells) {
+      const selected = isActive && d.activeLayer === 'ground' && d.selectedTileKey === tileKey
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
 
-    for (const { canvas, tileId } of this.objectCells) {
-      const selected = isActive && d.activeLayer === 'walls' && d.selectedTileId === tileId
+    for (const { canvas, tileKey } of this.objectCells) {
+      const selected = isActive && d.activeLayer === 'walls' && d.selectedTileKey === tileKey
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
 
     for (const { canvas, effectId } of this.effectCells) {
-      const selected = isActive && d.activeLayer === 'effects' && d.selectedTileId === effectId
+      const selected = isActive && d.activeLayer === 'effects' && d.selectedEffectId === effectId
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
   }

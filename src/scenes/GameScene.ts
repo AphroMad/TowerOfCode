@@ -42,10 +42,13 @@ export class GameScene extends Phaser.Scene {
     if (!data?.floorData) save.setCurrentFloor(floor.id)
 
     const map = this.make.tilemap({ key: floor.mapKey })
-    const mainTileset = map.addTilesetImage('tileset', floor.tilesetKey)!
-    const rockTileset = map.addTilesetImage('rock', 'rock-tiles')
-    const invisibleTileset = map.addTilesetImage('collision_invisible', 'invisible-wall-tiles')
-    const tilesets = [mainTileset, ...(rockTileset ? [rockTileset] : []), ...(invisibleTileset ? [invisibleTileset] : [])]
+    // Dynamically bind all tilesets referenced in the JSON
+    const tilesets: Phaser.Tilemaps.Tileset[] = []
+    for (const tsData of map.tilesets) {
+      // tileset name in JSON matches the Phaser cache key (tile registry key)
+      const ts = map.addTilesetImage(tsData.name, tsData.name)
+      if (ts) tilesets.push(ts)
+    }
 
     // Ground layer
     map.createLayer('Ground', tilesets, 0, 0)

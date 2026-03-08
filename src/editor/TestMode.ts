@@ -7,6 +7,7 @@ import { DialogScene } from '@/scenes/DialogScene'
 import { ChallengeScene } from '@/scenes/ChallengeScene'
 import type { FloorData, Direction, TileEffectData } from '@/data/types'
 import { MAP_W, MAP_H } from './EditorState'
+import { getAllTiles } from '@/data/tiles/TileRegistry'
 
 /**
  * Boot scene for editor test mode.
@@ -23,10 +24,10 @@ class EditorBootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Load same assets as main BootScene
-    this.load.image('tiles', 'assets/tilesets/tileset.png')
-    this.load.image('rock-tiles', 'assets/tilesets/rock.png')
-    this.load.image('invisible-wall-tiles', 'assets/tilesets/collision_invisible.png')
+    // Load all tiles from registry
+    for (const tile of getAllTiles()) {
+      this.load.image(tile.key, tile.url)
+    }
     this.load.spritesheet('player', 'assets/sprites/player.png', {
       frameWidth: 64,
       frameHeight: 64,
@@ -164,7 +165,6 @@ export class TestMode {
       id: d.floorId || 'test-floor',
       name: d.floorName || 'Test Floor',
       mapKey: 'editor-test-map',
-      tilesetKey: 'tiles',
       playerStart: {
         tileX: spawn.tileX,
         tileY: spawn.tileY,

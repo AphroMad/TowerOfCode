@@ -17,13 +17,14 @@ export interface EditorData {
   floorId: string
   floorName: string
 
-  groundLayer: number[]
-  wallsLayer: number[]
-  effectsLayer: number[] // 0=none, 1=ice, 2=redirect-down, 3=redirect-up, 4=redirect-left, 5=redirect-right
+  groundLayer: string[]   // tile keys, "" = empty
+  wallsLayer: string[]    // tile keys, "" = empty
+  effectsLayer: number[]  // 0=none, 1=ice, 2=redirect-down, 3=redirect-up, 4=redirect-left, 5=redirect-right
 
   activeLayer: LayerName
   activeTool: Tool
-  selectedTileId: number
+  selectedTileKey: string   // for ground/walls layers
+  selectedEffectId: number  // for effects layer
 
   groundVisible: boolean
   wallsVisible: boolean
@@ -79,12 +80,13 @@ export class EditorState {
     return {
       floorId: 'floor-03',
       floorName: 'New Floor',
-      groundLayer: new Array(MAP_W * MAP_H).fill(0),
-      wallsLayer: new Array(MAP_W * MAP_H).fill(0),
+      groundLayer: new Array(MAP_W * MAP_H).fill(''),
+      wallsLayer: new Array(MAP_W * MAP_H).fill(''),
       effectsLayer: new Array(MAP_W * MAP_H).fill(0),
       activeLayer: 'ground',
       activeTool: 'brush',
-      selectedTileId: 2,
+      selectedTileKey: 'ground/basic/2',
+      selectedEffectId: 1,
       groundVisible: true,
       wallsVisible: true,
       entitiesVisible: true,
@@ -108,24 +110,32 @@ export class EditorState {
     for (const fn of this.listeners) fn()
   }
 
-  getActiveLayerData(): number[] {
+  getActiveLayerData(): string[] | number[] {
     if (this._data.activeLayer === 'ground') return this._data.groundLayer
     if (this._data.activeLayer === 'effects') return this._data.effectsLayer
     return this._data.wallsLayer
   }
 
-  setTile(x: number, y: number, tileId: number): void {
+  setTile(x: number, y: number, value: string | number): void {
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return
-    const layer = this.getActiveLayerData()
-    layer[y * MAP_W + x] = tileId
+    const idx = y * MAP_W + x
+    const d = this._data
+    if (d.activeLayer === 'ground') {
+      d.groundLayer[idx] = value as string
+    } else if (d.activeLayer === 'walls') {
+      d.wallsLayer[idx] = value as string
+    } else if (d.activeLayer === 'effects') {
+      d.effectsLayer[idx] = value as number
+    }
   }
 
-  getTile(layer: LayerName, x: number, y: number): number {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0
-    const data = layer === 'ground' ? this._data.groundLayer
-      : layer === 'effects' ? this._data.effectsLayer
-      : this._data.wallsLayer
-    return data[y * MAP_W + x]
+  getTile(layer: LayerName, x: number, y: number): string | number {
+    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return ''
+    const idx = y * MAP_W + x
+    if (layer === 'ground') return this._data.groundLayer[idx]
+    if (layer === 'walls') return this._data.wallsLayer[idx]
+    if (layer === 'effects') return this._data.effectsLayer[idx]
+    return ''
   }
 
   findEntityAt(x: number, y: number): { type: EntityType; index: number } | null {

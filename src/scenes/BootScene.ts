@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { getAllTiles } from '@/data/tiles/TileRegistry'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,10 +9,10 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     this.createLoadingBar()
 
-    // Tilesets
-    this.load.image('tiles', 'assets/tilesets/tileset.png')
-    this.load.image('rock-tiles', 'assets/tilesets/rock.png')
-    this.load.image('invisible-wall-tiles', 'assets/tilesets/collision_invisible.png')
+    // Tilesets (auto-discovered from src/assets/tilesets/)
+    for (const tile of getAllTiles()) {
+      this.load.image(tile.key, tile.url)
+    }
     // Tilemap
     this.load.tilemapTiledJSON('floor-01', 'assets/maps/floor-01.json')
     this.load.tilemapTiledJSON('floor-02', 'assets/maps/floor-02.json')

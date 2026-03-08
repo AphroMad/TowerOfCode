@@ -1,5 +1,6 @@
 import { type EditorState, MAP_W, MAP_H } from './EditorState'
 import type { UndoManager } from './UndoManager'
+import { loadAllTileImages, getTileImage } from './tileImageCache'
 
 const TILE_SIZE = 32
 
@@ -37,8 +38,6 @@ export class EditorCanvas {
   private ctx: CanvasRenderingContext2D
   private state: EditorState
   private undo: UndoManager
-  private tilesetImg: HTMLImageElement
-  private rockImg: HTMLImageElement
   private imagesLoaded = false
   private painting = false
   private lastPaintTile: { x: number; y: number } | null = null
@@ -54,10 +53,7 @@ export class EditorCanvas {
     this.ctx = this.canvas.getContext('2d')!
     this.ctx.imageSmoothingEnabled = false
 
-    this.tilesetImg = new Image()
-    this.rockImg = new Image()
-
-    this.loadImages().then(() => {
+    loadAllTileImages().then(() => {
       this.imagesLoaded = true
       this.render()
     }).catch(err => console.error('EditorCanvas: failed to load images', err))
@@ -65,19 +61,6 @@ export class EditorCanvas {
     this.state.onChange(() => this.render())
     this.bindEvents()
     this.updateSize()
-  }
-
-  private async loadImages(): Promise<void> {
-    const load = (img: HTMLImageElement, src: string) =>
-      new Promise<void>((res, rej) => {
-        img.onload = () => res()
-        img.onerror = () => rej(new Error(`Failed to load image: ${src}`))
-        img.src = src
-      })
-    await Promise.all([
-      load(this.tilesetImg, 'assets/tilesets/tileset.png'),
-      load(this.rockImg, 'assets/tilesets/rock.png'),
-    ])
   }
 
   updateSize(): void {
@@ -229,8 +212,13 @@ export class EditorCanvas {
     this.lastPaintTile = tile
 
     const d = this.state.snapshot
-    const tileId = d.activeTool === 'eraser' ? 0 : d.selectedTileId
-    this.state.setTile(tile.x, tile.y, tileId)
+    if (d.activeLayer === 'effects') {
+      const effectId = d.activeTool === 'eraser' ? 0 : d.selectedEffectId
+      this.state.setTile(tile.x, tile.y, effectId)
+    } else {
+      const tileKey = d.activeTool === 'eraser' ? '' : d.selectedTileKey
+      this.state.setTile(tile.x, tile.y, tileKey)
+    }
     this.render()
   }
 
@@ -296,14 +284,14 @@ export class EditorCanvas {
     }
   }
 
-  private drawLayer(layer: number[], s: number, alpha: number): void {
+  private drawLayer(layer: string[], s: number, alpha: number): void {
     const ctx = this.ctx
     ctx.globalAlpha = alpha
     for (let y = 0; y < MAP_H; y++) {
       for (let x = 0; x < MAP_W; x++) {
-        const tileId = layer[y * MAP_W + x]
-        if (tileId === 0) continue
-        this.drawTile(ctx, tileId, x * s, y * s, s)
+        const tileKey = layer[y * MAP_W + x]
+        if (tileKey === '') continue
+        this.drawTile(ctx, tileKey, x * s, y * s, s)
       }
     }
     ctx.globalAlpha = 1
@@ -347,40 +335,54 @@ export class EditorCanvas {
     ctx.globalAlpha = 1
   }
 
-  private drawTile(ctx: CanvasRenderingContext2D, tileId: number, dx: number, dy: number, size: number): void {
-    if (tileId >= 1 && tileId <= 9) {
-      const sx = (tileId - 1) * TILE_SIZE
-      ctx.drawImage(this.tilesetImg, sx, 0, TILE_SIZE, TILE_SIZE, dx, dy, size, size)
-    } else if (tileId === 10) {
-      ctx.drawImage(this.rockImg, 0, 0, TILE_SIZE, TILE_SIZE, dx, dy, size, size)
-    } else if (tileId === 11) {
-      // Invisible wall — semi-transparent red hatch + X, clipped to cell
-      ctx.save()
-      ctx.beginPath()
-      ctx.rect(dx, dy, size, size)
-      ctx.clip()
-
-      ctx.fillStyle = 'rgba(80, 20, 20, 0.4)'
-      ctx.fillRect(dx, dy, size, size)
-      ctx.strokeStyle = 'rgba(255, 60, 60, 0.4)'
-      ctx.lineWidth = 1
-      for (let i = -size; i < size * 2; i += 8) {
-        ctx.beginPath()
-        ctx.moveTo(dx + i, dy)
-        ctx.lineTo(dx + i + size, dy + size)
-        ctx.stroke()
-      }
-      ctx.strokeStyle = 'rgba(255, 60, 60, 0.6)'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(dx + 4, dy + 4)
-      ctx.lineTo(dx + size - 4, dy + size - 4)
-      ctx.moveTo(dx + size - 4, dy + 4)
-      ctx.lineTo(dx + 4, dy + size - 4)
-      ctx.stroke()
-
-      ctx.restore()
+  private drawTile(ctx: CanvasRenderingContext2D, tileKey: string, dx: number, dy: number, size: number): void {
+    // Special case: invisible wall — procedural red-hatch overlay
+    if (tileKey === 'objects/collision_invisible') {
+      this.drawInvisibleWall(ctx, dx, dy, size)
+      return
     }
+
+    const img = getTileImage(tileKey)
+    if (img) {
+      ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, size, size)
+    } else {
+      // Fallback: pink square for missing tile
+      ctx.fillStyle = '#ff00ff'
+      ctx.fillRect(dx, dy, size, size)
+      ctx.fillStyle = '#fff'
+      ctx.font = `${Math.round(size * 0.2)}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', dx + size / 2, dy + size / 2)
+    }
+  }
+
+  private drawInvisibleWall(ctx: CanvasRenderingContext2D, dx: number, dy: number, size: number): void {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(dx, dy, size, size)
+    ctx.clip()
+
+    ctx.fillStyle = 'rgba(80, 20, 20, 0.4)'
+    ctx.fillRect(dx, dy, size, size)
+    ctx.strokeStyle = 'rgba(255, 60, 60, 0.4)'
+    ctx.lineWidth = 1
+    for (let i = -size; i < size * 2; i += 8) {
+      ctx.beginPath()
+      ctx.moveTo(dx + i, dy)
+      ctx.lineTo(dx + i + size, dy + size)
+      ctx.stroke()
+    }
+    ctx.strokeStyle = 'rgba(255, 60, 60, 0.6)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(dx + 4, dy + 4)
+    ctx.lineTo(dx + size - 4, dy + size - 4)
+    ctx.moveTo(dx + size - 4, dy + 4)
+    ctx.lineTo(dx + 4, dy + size - 4)
+    ctx.stroke()
+
+    ctx.restore()
   }
 
   private drawEntities(s: number): void {
@@ -489,9 +491,9 @@ export class EditorCanvas {
 
     ctx.fillStyle = COL_SIGHT_FILL
     while (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
-      // Check wall on wallsLayer
+      // Check wall on wallsLayer — non-empty string means wall
       const wallTile = d.wallsLayer[ty * MAP_W + tx]
-      if (wallTile !== 0) break
+      if (wallTile !== '') break
       ctx.fillRect(tx * s, ty * s, s, s)
       tx += off.dx
       ty += off.dy

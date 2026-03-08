@@ -4,7 +4,6 @@ export const floor01: FloorData = {
   id: 'floor-01',
   name: 'The Entrance Hall',
   mapKey: 'floor-01',
-  tilesetKey: 'tiles',
   playerStart: { tileX: 10, tileY: 12, facing: 'up' },
   npcs: [
     {

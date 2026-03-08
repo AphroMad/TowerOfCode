@@ -6,10 +6,14 @@ import { getAllChallengeIds } from '@/data/challenges'
 
 export class EntityPanel {
   private state: EditorState
+  private wrapper: HTMLElement
   private formContainer: HTMLElement
 
   constructor(container: HTMLElement, state: EditorState) {
     this.state = state
+
+    // Wrapper that hides when not on entities layer
+    this.wrapper = document.createElement('div')
 
     const btnRow = document.createElement('div')
     btnRow.style.display = 'flex'
@@ -25,6 +29,7 @@ export class EntityPanel {
         this.state.mutate(d => {
           d.placingEntity = type
           d.activeTool = 'entity'
+          d.activeLayer = 'entities'
         })
       })
       btnRow.appendChild(btn)
@@ -33,14 +38,22 @@ export class EntityPanel {
     addBtn('+ Spawn', 'player')
     addBtn('+ NPC', 'npc')
     addBtn('+ Warp', 'stair')
-    container.appendChild(btnRow)
+    this.wrapper.appendChild(btnRow)
 
     // Properties form
     this.formContainer = document.createElement('div')
     this.formContainer.id = 'entity-props'
-    container.appendChild(this.formContainer)
+    this.wrapper.appendChild(this.formContainer)
 
+    container.appendChild(this.wrapper)
+
+    state.onChange(() => this.updateVisibility())
     state.onChange(() => this.renderForm())
+    this.updateVisibility()
+  }
+
+  private updateVisibility(): void {
+    this.wrapper.style.display = this.state.snapshot.activeLayer === 'entities' ? '' : 'none'
   }
 
   private renderForm(): void {

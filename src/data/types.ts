@@ -145,7 +145,6 @@ export interface FloorData {
   id: string
   name: string
   mapKey: string
-  tilesetKey: string
   playerStart: { tileX: number; tileY: number; facing: Direction }
   npcs: NPCData[]
   requiredChallenges: string[]

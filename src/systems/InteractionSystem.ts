@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
 import type { NPC } from '@/entities/NPC'
+import type { Player } from '@/entities/Player'
 import { GridMovementSystem } from '@/systems/GridMovementSystem'
 
 export class InteractionSystem {
   private scene: Phaser.Scene
   private npcs: NPC[]
+  private player: Player
   private gridMovement: GridMovementSystem
   private actionKey: Phaser.Input.Keyboard.Key
   private canInteract = true
@@ -13,9 +15,11 @@ export class InteractionSystem {
     scene: Phaser.Scene,
     npcs: NPC[],
     gridMovement: GridMovementSystem,
+    player: Player,
   ) {
     this.scene = scene
     this.npcs = npcs
+    this.player = player
     this.gridMovement = gridMovement
     this.actionKey = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
   }
@@ -39,6 +43,7 @@ export class InteractionSystem {
     if (npc) {
       const playerTile = this.gridMovement.getPlayerTile()
       npc.facePlayer(playerTile.x, playerTile.y)
+      this.player.faceToward(npc.data.tileX, npc.data.tileY)
       this.scene.events.emit('npc-interact', npc)
     }
   }

@@ -1,25 +1,19 @@
 import type { IChallenge } from '@/challenges/IChallenge'
-import { MultipleChoiceChallenge } from '@/challenges/MultipleChoiceChallenge'
-import { FillInBlankChallenge } from '@/challenges/FillInBlankChallenge'
-import { DebugCodeChallenge } from '@/challenges/DebugCodeChallenge'
-import { DragDropChallenge } from '@/challenges/DragDropChallenge'
-import { MatchingChallenge } from '@/challenges/MatchingChallenge'
-import { CodeEditorChallenge } from '@/challenges/CodeEditorChallenge'
-import { ExplanationChallenge } from '@/challenges/ExplanationChallenge'
-import { FillInChoiceChallenge } from '@/challenges/FillInChoiceChallenge'
+import { ClExplanationChallenge } from '@/challenges/ClExplanationChallenge'
+import { ClMultipleChoiceChallenge } from '@/challenges/ClMultipleChoiceChallenge'
+import { ClFillInTextChallenge } from '@/challenges/ClFillInTextChallenge'
+import { ClMatchingPairsChallenge } from '@/challenges/ClMatchingPairsChallenge'
+import { ClChallengeChallenge } from '@/challenges/ClChallengeChallenge'
 
 type ChallengeConstructor = new () => IChallenge
 
 const registry = new Map<string, ChallengeConstructor>()
 
-registry.set('multiple-choice', MultipleChoiceChallenge)
-registry.set('fill-in-blank', FillInBlankChallenge)
-registry.set('debug-code', DebugCodeChallenge)
-registry.set('drag-drop', DragDropChallenge)
-registry.set('matching', MatchingChallenge)
-registry.set('code-editor', CodeEditorChallenge)
-registry.set('explanation', ExplanationChallenge)
-registry.set('fill-in-choice', FillInChoiceChallenge)
+registry.set('cl-explanation', ClExplanationChallenge)
+registry.set('cl-multiple-choice', ClMultipleChoiceChallenge)
+registry.set('cl-fill-in-text', ClFillInTextChallenge)
+registry.set('cl-matching-pairs', ClMatchingPairsChallenge)
+registry.set('cl-challenge', ClChallengeChallenge)
 
 export function createChallenge(type: string): IChallenge {
   const Ctor = registry.get(type)

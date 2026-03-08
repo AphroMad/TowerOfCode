@@ -1,11 +1,18 @@
 import type { DialogLine } from '@/systems/DialogSystem'
-import en from '@/i18n/locales/en.json'
-import fr from '@/i18n/locales/fr.json'
+import enUi from '@/i18n/locales/en/ui.json'
+import enFloors from '@/i18n/locales/en/floors.json'
+import enDialogs from '@/i18n/locales/en/dialogs.json'
+import frUi from '@/i18n/locales/fr/ui.json'
+import frFloors from '@/i18n/locales/fr/floors.json'
+import frDialogs from '@/i18n/locales/fr/dialogs.json'
 
 type Language = 'en' | 'fr'
 type LocaleData = Record<string, string | string[]>
 
-const locales: Record<Language, LocaleData> = { en, fr }
+const locales: Record<Language, LocaleData> = {
+  en: { ...enUi, ...enFloors, ...enDialogs },
+  fr: { ...frUi, ...frFloors, ...frDialogs },
+}
 
 export class I18nManager {
   private static instance: I18nManager
@@ -31,6 +38,12 @@ export class I18nManager {
     if (typeof val === 'string') return val
     if (Array.isArray(val)) return val.join('\n')
     return `[${key}]`
+  }
+
+  /** Returns all locale keys whose values are arrays (i.e. dialog keys). */
+  getDialogKeys(): string[] {
+    const data = locales[this.language]
+    return Object.keys(data).filter(k => Array.isArray(data[k]))
   }
 
   getDialog(key: string, speaker?: string): DialogLine[] {

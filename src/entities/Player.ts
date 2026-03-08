@@ -69,6 +69,17 @@ export class Player {
     this.sprite.play(`player-idle-${this.facing}`, true)
   }
 
+  faceToward(targetTileX: number, targetTileY: number): void {
+    const dx = targetTileX - this.tileX
+    const dy = targetTileY - this.tileY
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      this.facing = dx > 0 ? 'right' : 'left'
+    } else {
+      this.facing = dy > 0 ? 'down' : 'up'
+    }
+    this.playIdle()
+  }
+
   get tileX(): number {
     return Math.round((this.sprite.x - TILE_SIZE / 2) / TILE_SIZE)
   }

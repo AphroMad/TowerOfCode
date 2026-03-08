@@ -14,6 +14,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         exercises: resolve(__dirname, 'exercises.html'),
+        editor: resolve(__dirname, 'editor.html'),
       },
     },
   },

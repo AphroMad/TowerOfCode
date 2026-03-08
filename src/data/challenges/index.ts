@@ -1,26 +1,18 @@
 import type { ChallengeConfig } from '@/data/types'
 
-import lessonVariables from './exercises/lesson-variables.json'
-import whatIsVariable from './exercises/what-is-variable.json'
-import fillVariableName from './exercises/fill-variable-name.json'
-import chooseVariableValue from './exercises/choose-variable-value.json'
-import orderVariableCode from './exercises/order-variable-code.json'
-import matchTypes from './exercises/match-types.json'
-import writeAgeVariable from './exercises/write-age-variable.json'
+const modules = import.meta.glob('./clExercises/*.json', { eager: true }) as Record<
+  string,
+  { default: ChallengeConfig }
+>
 
 const allChallenges = new Map<string, ChallengeConfig>()
+const exercises: ChallengeConfig[] = []
 
-const exercises: ChallengeConfig[] = [
-  lessonVariables as ChallengeConfig,
-  whatIsVariable as ChallengeConfig,
-  fillVariableName as ChallengeConfig,
-  chooseVariableValue as ChallengeConfig,
-  orderVariableCode as ChallengeConfig,
-  matchTypes as ChallengeConfig,
-  writeAgeVariable as ChallengeConfig,
-]
-
-for (const c of exercises) allChallenges.set(c.id, c)
+for (const mod of Object.values(modules)) {
+  const config = mod.default
+  exercises.push(config)
+  allChallenges.set(config.id, config)
+}
 
 export function getChallenge(id: string): ChallengeConfig | undefined {
   return allChallenges.get(id)
@@ -28,4 +20,8 @@ export function getChallenge(id: string): ChallengeConfig | undefined {
 
 export function getAllChallenges(): ChallengeConfig[] {
   return exercises
+}
+
+export function getAllChallengeIds(): string[] {
+  return exercises.map(c => c.id)
 }

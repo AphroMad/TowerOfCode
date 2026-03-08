@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { getAllChallenges } from '@/data/challenges'
 import { createChallenge } from '@/challenges/ChallengeRegistry'
 import type { IChallenge } from '@/challenges/IChallenge'
-import type { ChallengeConfig, ExplanationConfig } from '@/data/types'
+import type { ChallengeConfig } from '@/data/types'
 import { SaveManager } from '@/systems/SaveManager'
 import { I18nManager } from '@/i18n/I18nManager'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
@@ -16,10 +16,11 @@ const lang = I18nManager.getInstance().getLanguage()
 challenges.forEach((config, index) => {
   const tr = document.createElement('tr')
 
-  const typeLabel = config.type === 'explanation' ? 'lesson' : config.type
+  const typeLabel = config.type
   const name = getExerciseName(config, lang)
 
   tr.innerHTML = `
+    <td class="id-cell">${escapeHtml(config.id)}</td>
     <td class="type-cell">${typeLabel}</td>
     <td class="title-cell">${escapeHtml(name)}</td>
   `
@@ -28,11 +29,7 @@ challenges.forEach((config, index) => {
 })
 
 function getExerciseName(config: ChallengeConfig, lang: 'en' | 'fr'): string {
-  if (config.type === 'explanation') {
-    const expl = config as ExplanationConfig
-    return expl.pages[0]?.title[lang] ?? config.id
-  }
-  return config.question[lang]
+  return config.title[lang]
 }
 
 function escapeHtml(s: string): string {
@@ -56,6 +53,8 @@ function openChallenge(index: number) {
   listView.style.display = 'none'
   challengeView.style.display = 'block'
   backBtn.style.display = 'block'
+
+  let activeChallenge: IChallenge | null = null
 
   // Minimal Phaser game with just the challenge
   game = new Phaser.Game({
@@ -107,20 +106,16 @@ function openChallenge(index: number) {
         escKey.on('down', () => closeChallenge())
 
         // Create challenge
-        const challenge: IChallenge = createChallenge(config.type)
-        challenge.create(scene, config, (success) => {
+        activeChallenge = createChallenge(config.type)
+        activeChallenge.create(scene, config, (success) => {
           if (success) {
             SaveManager.getInstance().completeChallenge(config.id)
           }
           closeChallenge()
-        });
-
-        // Store challenge ref for update
-        (scene as any)._challenge = challenge
+        })
       },
-      update: function (this: Phaser.Scene) {
-        const challenge = (this as any)._challenge as IChallenge | undefined
-        if (challenge) challenge.update()
+      update: function () {
+        if (activeChallenge) activeChallenge.update()
       },
     },
   })

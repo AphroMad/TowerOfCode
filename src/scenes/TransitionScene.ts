@@ -48,8 +48,8 @@ export class TransitionScene extends Phaser.Scene {
                 alpha: 0,
                 duration: 300,
                 onComplete: () => {
-                  // 4. Stop old GameScene, start new one with floorId, stop self
-                  this.scene.stop('GameScene')
+                  // 4. Restart GameScene with new floor, then stop self
+                  // scene.start() auto-stops a running scene, avoiding race conditions
                   this.scene.start('GameScene', { floorId, fromDirection: data.fromDirection })
                   this.scene.stop()
                 },

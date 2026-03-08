@@ -1,3 +1,4 @@
+import Phaser from 'phaser'
 import { TYPEWRITER_SPEED } from '@/config/game.config'
 
 export interface DialogLine {
@@ -6,19 +7,22 @@ export interface DialogLine {
 }
 
 export class DialogSystem {
+  private scene: Phaser.Scene
   private lines: DialogLine[] = []
   private currentLineIndex = 0
   private currentCharIndex = 0
   private isTyping = false
-  private timer: ReturnType<typeof setInterval> | null = null
+  private timer: Phaser.Time.TimerEvent | null = null
   private onTextUpdate: (text: string, speaker?: string) => void
   private onComplete: () => void
   private displayedText = ''
 
   constructor(
+    scene: Phaser.Scene,
     onTextUpdate: (text: string, speaker?: string) => void,
     onComplete: () => void,
   ) {
+    this.scene = scene
     this.onTextUpdate = onTextUpdate
     this.onComplete = onComplete
   }
@@ -42,7 +46,7 @@ export class DialogSystem {
 
   destroy(): void {
     if (this.timer) {
-      clearInterval(this.timer)
+      this.timer.destroy()
       this.timer = null
     }
   }
@@ -55,24 +59,28 @@ export class DialogSystem {
 
     this.onTextUpdate('', line.speaker)
 
-    this.timer = setInterval(() => {
-      if (this.currentCharIndex < line.text.length) {
-        this.displayedText += line.text[this.currentCharIndex]
-        this.currentCharIndex++
-        this.onTextUpdate(this.displayedText, line.speaker)
-      } else {
-        this.isTyping = false
-        if (this.timer) {
-          clearInterval(this.timer)
-          this.timer = null
+    this.timer = this.scene.time.addEvent({
+      delay: TYPEWRITER_SPEED,
+      loop: true,
+      callback: () => {
+        if (this.currentCharIndex < line.text.length) {
+          this.displayedText += line.text[this.currentCharIndex]
+          this.currentCharIndex++
+          this.onTextUpdate(this.displayedText, line.speaker)
+        } else {
+          this.isTyping = false
+          if (this.timer) {
+            this.timer.destroy()
+            this.timer = null
+          }
         }
-      }
-    }, TYPEWRITER_SPEED)
+      },
+    })
   }
 
   private skipTyping(): void {
     if (this.timer) {
-      clearInterval(this.timer)
+      this.timer.destroy()
       this.timer = null
     }
     const line = this.lines[this.currentLineIndex]

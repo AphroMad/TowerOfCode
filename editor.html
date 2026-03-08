@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tower of Code - Map Editor</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #1a1a2e;
+        color: #cccccc;
+        font-family: 'Courier New', monospace;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* ── Toolbar ── */
+      #toolbar {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background: #16162a;
+        border-bottom: 1px solid #333;
+        gap: 4px;
+        flex-shrink: 0;
+        overflow-x: auto;
+        min-height: 40px;
+      }
+
+      /* ── Main area ── */
+      #main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar (left) ── */
+      #sidebar {
+        width: fit-content;
+        min-width: 160px;
+        max-width: 500px;
+        padding: 10px;
+        background: #16162a;
+        border-right: 1px solid #333;
+        overflow-y: auto;
+        flex-shrink: 0;
+        position: relative;
+      }
+
+      /* ── Canvas container (center) ── */
+      #canvas-container {
+        flex: 1;
+        overflow: auto;
+        padding: 12px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        position: relative;
+      }
+
+      /* ── Zoom overlay ── */
+      #zoom-overlay {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        z-index: 5;
+        opacity: 0.35;
+        transition: opacity 0.15s;
+        background: rgba(22, 22, 42, 0.8);
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #333;
+      }
+      #zoom-overlay:hover {
+        opacity: 1;
+      }
+      #zoom-label {
+        font-size: 11px;
+        color: #aaa;
+        min-width: 28px;
+        text-align: center;
+      }
+      #zoom-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100px;
+        height: 6px;
+        background: #333;
+        border-radius: 3px;
+        outline: none;
+        cursor: pointer;
+      }
+      #zoom-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        background: #ffdd44;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+      }
+      #zoom-slider::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        background: #ffdd44;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+      }
+
+      #canvas-container canvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* ── Help panel (right) ── */
+      #help-panel {
+        width: 200px;
+        min-width: 200px;
+        padding: 10px;
+        background: #16162a;
+        border-left: 1px solid #333;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+
+      /* ── Status bar ── */
+      #status-bar {
+        padding: 4px 12px;
+        background: #111122;
+        border-top: 1px solid #333;
+        font-size: 12px;
+        color: #888;
+        flex-shrink: 0;
+        min-height: 24px;
+      }
+
+      /* ── Shared styles ── */
+      .panel-title {
+        color: #ffdd44;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #333;
+      }
+
+      .editor-btn {
+        background: #2a2a4e;
+        border: 1px solid #444;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        padding: 4px 10px;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.1s;
+        white-space: nowrap;
+      }
+      .editor-btn:hover {
+        background: #3a3a5e;
+        color: #fff;
+        border-color: #666;
+      }
+      .editor-btn.active {
+        background: #ffdd44;
+        color: #111;
+        border-color: #ffdd44;
+      }
+      .editor-btn-sm {
+        padding: 2px 8px;
+        font-size: 11px;
+      }
+      .editor-btn-danger {
+        border-color: #664444;
+      }
+      .editor-btn-danger:hover {
+        background: #662222;
+        border-color: #aa4444;
+        color: #ff8888;
+      }
+
+      .toolbar-input {
+        background: #222;
+        border: 1px solid #444;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .toolbar-input:focus {
+        outline: none;
+        border-color: #ffdd44;
+      }
+
+      /* ── Property panel ── */
+      .prop-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .prop-label {
+        font-size: 11px;
+        color: #888;
+        min-width: 70px;
+        text-align: right;
+      }
+      .prop-input {
+        flex: 1;
+        background: #222;
+        border: 1px solid #444;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        min-width: 0;
+      }
+      .prop-input:focus {
+        outline: none;
+        border-color: #ffdd44;
+      }
+      select.prop-input {
+        cursor: pointer;
+      }
+
+      /* ── Help panel styles ── */
+      .help-item {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 2px;
+      }
+
+      .help-key {
+        display: inline-block;
+        background: #2a2a4e;
+        border: 1px solid #444;
+        border-radius: 2px;
+        padding: 0 4px;
+        font-size: 10px;
+        color: #ccc;
+        min-width: 20px;
+        text-align: center;
+        margin-right: 4px;
+      }
+
+      .help-text {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 2px;
+      }
+      .help-text b {
+        color: #ccc;
+      }
+
+      /* ── Tile palette styles ── */
+      .tile-search-input {
+        width: 100%;
+        background: #222;
+        border: 1px solid #444;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 3px;
+        margin-bottom: 8px;
+      }
+      .tile-search-input:focus {
+        outline: none;
+        border-color: #ffdd44;
+      }
+      .tile-search-input::placeholder {
+        color: #666;
+      }
+
+      .tile-folder {
+        margin-bottom: 8px;
+      }
+      .tile-folder-header {
+        font-size: 10px;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid #2a2a4e;
+      }
+
+      .tile-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+      }
+
+      .tile-cell-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .tile-cell-label {
+        font-size: 9px;
+        color: #777;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 52px;
+      }
+
+      /* ── Visibility overlay ── */
+      #visibility-overlay {
+        position: absolute;
+        top: 42px;
+        right: 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        z-index: 5;
+        opacity: 0.35;
+        transition: opacity 0.15s;
+        background: rgba(22, 22, 42, 0.8);
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #333;
+      }
+      #visibility-overlay:hover {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar"></div>
+    <div id="main">
+      <div id="sidebar"></div>
+      <div id="canvas-container"></div>
+      <div id="help-panel">
+        <div class="panel-title">Shortcuts</div>
+        <div class="help-item"><span class="help-key">B</span> Brush tool</div>
+        <div class="help-item"><span class="help-key">E</span> Eraser tool</div>
+        <div class="help-item"><span class="help-key">G</span> Ground layer</div>
+        <div class="help-item"><span class="help-key">W</span> Objects layer</div>
+        <div class="help-item"><span class="help-key">F</span> Effects layer</div>
+        <div class="help-item"><span class="help-key">Esc</span> Deselect</div>
+        <div class="help-item"><span class="help-key">Ctrl+Z</span> Undo</div>
+        <div class="help-item"><span class="help-key">R-click</span> Delete entity</div>
+
+        <div class="panel-title" style="margin-top:16px">Layers</div>
+        <div class="help-text"><b>Ground</b> — Visual tiles the player sees</div>
+        <div class="help-text"><b>Objects</b> — Collision tiles that block movement (rocks, invisible walls)</div>
+        <div class="help-text"><b>Effects</b> — Behavioral tile effects (ice sliding, redirect arrows)</div>
+        <div class="help-text"><b>Entities</b> — Click to select and edit spawns, NPCs, warps</div>
+
+        <div class="panel-title" style="margin-top:16px">Entity Markers</div>
+        <div class="help-text"><span style="color:#22cc22">&#9679;</span> S = Player spawn</div>
+        <div class="help-text"><span style="color:#44cc44">&#9679;</span> P = Professor</div>
+        <div class="help-text"><span style="color:#aaaaaa">&#9679;</span> G = Gatekeeper</div>
+        <div class="help-text"><span style="color:#ccaa44">&#9679;</span> F = Flavor NPC</div>
+        <div class="help-text"><span style="color:#aa66ff">&#9679;</span> W = Warp point</div>
+
+        <div class="panel-title" style="margin-top:16px">NPC Behaviors</div>
+        <div class="help-text"><b>Static</b> — Player must interact manually</div>
+        <div class="help-text"><b>Detect</b> — Line-of-sight, approaches player</div>
+        <div class="help-text"><b>Lookout</b> — Rotates facing, detects player</div>
+        <div class="help-text"><b>Patrol</b> — Walks waypoints, detects player</div>
+        <div class="help-text"><span class="help-key">Shift</span>+click = add patrol waypoint</div>
+
+        <div class="panel-title" style="margin-top:16px">Workflow</div>
+        <div class="help-text">1. Paint ground tiles</div>
+        <div class="help-text">2. Switch to Objects, paint collision</div>
+        <div class="help-text">3. Place spawn, NPCs, warps</div>
+        <div class="help-text">4. Set NPC behaviors</div>
+        <div class="help-text">5. Export JSON + TS</div>
+      </div>
+    </div>
+    <div id="status-bar">Ready</div>
+
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

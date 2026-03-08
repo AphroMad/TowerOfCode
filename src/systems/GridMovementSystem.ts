@@ -2,15 +2,19 @@ import Phaser from 'phaser'
 import { Player } from '@/entities/Player'
 import { TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
 import { tileToPixel } from '@/utils/helpers'
-import type { Direction } from '@/data/types'
+import type { Direction, TileEffectData } from '@/data/types'
 
 export class GridMovementSystem {
   private player: Player
   private scene: Phaser.Scene
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys
   private isMoving = false
+  private isFrozen = false
   private wallLayer: Phaser.Tilemaps.TilemapLayer
   private blockedTiles: Set<string>
+  private tileEffects: Map<string, TileEffectData> = new Map()
+  private lastDirection: Direction = 'down'
+  private isSliding = false
 
   constructor(
     scene: Phaser.Scene,
@@ -32,21 +36,76 @@ export class GridMovementSystem {
     this.blockedTiles.delete(`${tileX},${tileY}`)
   }
 
+  setTileEffects(effects: TileEffectData[]): void {
+    this.tileEffects.clear()
+    for (const e of effects) {
+      this.tileEffects.set(`${e.tileX},${e.tileY}`, e)
+    }
+  }
+
   get moving(): boolean {
     return this.isMoving
   }
 
+  get sliding(): boolean {
+    return this.isSliding
+  }
+
+  freeze(): void {
+    this.isFrozen = true
+  }
+
+  unfreeze(): void {
+    this.isFrozen = false
+  }
+
+  /** Returns a promise that resolves once any in-progress move finishes */
+  waitForMove(): Promise<void> {
+    if (!this.isMoving) return Promise.resolve()
+    return new Promise(resolve => {
+      const check = () => {
+        if (!this.isMoving) resolve()
+        else this.scene.time.delayedCall(16, check)
+      }
+      check()
+    })
+  }
+
+  get frozen(): boolean {
+    return this.isFrozen
+  }
+
+  get mapWidth(): number {
+    return this.wallLayer.layer.width
+  }
+
+  get mapHeight(): number {
+    return this.wallLayer.layer.height
+  }
+
+  /** Check if a tile has a wall (non-empty tile on wall layer) */
+  isWallAt(tileX: number, tileY: number): boolean {
+    const mapWidth = this.wallLayer.layer.width
+    const mapHeight = this.wallLayer.layer.height
+    if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return true
+    const tile = this.wallLayer.getTileAt(tileX, tileY)
+    return tile !== null
+  }
+
+  /** Check if a tile is blocked (wall, NPC, or out of bounds) */
+  isBlocked(tileX: number, tileY: number): boolean {
+    return this.isTileBlocked(tileX, tileY)
+  }
+
   update(): void {
-    if (this.isMoving) return
+    if (this.isMoving || this.isFrozen) return
 
     let dir: Direction | null = null
-    let dx = 0
-    let dy = 0
 
-    if (this.cursors.down.isDown) { dir = 'down'; dy = 1 }
-    else if (this.cursors.up.isDown) { dir = 'up'; dy = -1 }
-    else if (this.cursors.left.isDown) { dir = 'left'; dx = -1 }
-    else if (this.cursors.right.isDown) { dir = 'right'; dx = 1 }
+    if (this.cursors.down.isDown) dir = 'down'
+    else if (this.cursors.up.isDown) dir = 'up'
+    else if (this.cursors.left.isDown) dir = 'left'
+    else if (this.cursors.right.isDown) dir = 'right'
 
     if (dir === null) {
       this.player.playIdle()
@@ -54,22 +113,36 @@ export class GridMovementSystem {
     }
 
     this.player.facing = dir
+    this.executeMove(dir)
+  }
 
-    const targetTileX = this.player.tileX + dx
-    const targetTileY = this.player.tileY + dy
+  private executeMove(dir: Direction): void {
+    const offsets: Record<Direction, { x: number; y: number }> = {
+      down: { x: 0, y: 1 },
+      up: { x: 0, y: -1 },
+      left: { x: -1, y: 0 },
+      right: { x: 1, y: 0 },
+    }
+    const off = offsets[dir]
+    const targetTileX = this.player.tileX + off.x
+    const targetTileY = this.player.tileY + off.y
 
     if (this.isTileBlocked(targetTileX, targetTileY)) {
+      this.isSliding = false
+      this.isMoving = false
       this.player.playIdle()
       return
     }
 
     this.isMoving = true
-    this.player.playWalk(dir)
+    this.lastDirection = dir
+    this.player.facing = dir
+    if (!this.isSliding) this.player.playWalk(dir)
+    else this.player.playIdle()
 
     const targetX = tileToPixel(targetTileX)
     const targetY = tileToPixel(targetTileY)
-    const distance = TILE_SIZE
-    const duration = (distance / PLAYER_MOVE_SPEED) * 1000
+    const duration = (TILE_SIZE / PLAYER_MOVE_SPEED) * 1000
 
     this.scene.tweens.add({
       targets: this.player.sprite,
@@ -78,9 +151,30 @@ export class GridMovementSystem {
       duration,
       ease: 'Linear',
       onComplete: () => {
-        this.isMoving = false
+        this.processLandingEffect()
       },
     })
+  }
+
+  private processLandingEffect(): void {
+    const key = `${this.player.tileX},${this.player.tileY}`
+    const effect = this.tileEffects.get(key)
+
+    if (effect?.effect === 'ice') {
+      this.isSliding = true
+      this.executeMove(this.lastDirection)
+      return
+    }
+
+    if (effect?.effect === 'redirect' && effect.direction) {
+      this.isSliding = true
+      this.executeMove(effect.direction)
+      return
+    }
+
+    // No effect — stop
+    this.isSliding = false
+    this.isMoving = false
   }
 
   private isTileBlocked(tileX: number, tileY: number): boolean {

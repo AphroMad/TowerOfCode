@@ -7,7 +7,6 @@ interface DialogSceneData {
   dialogKey: string
   npcName: string
   challengeConfig?: ChallengeConfig
-  npcRole?: string
 }
 
 export class DialogScene extends Phaser.Scene {
@@ -15,6 +14,7 @@ export class DialogScene extends Phaser.Scene {
   private speakerText!: Phaser.GameObjects.Text
   private dialogText!: Phaser.GameObjects.Text
   private advanceIndicator!: Phaser.GameObjects.Text
+  private advanceTween?: Phaser.Tweens.Tween
   private sceneData!: DialogSceneData
 
   constructor() {
@@ -57,7 +57,7 @@ export class DialogScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setDepth(2)
 
-    this.tweens.add({
+    this.advanceTween = this.tweens.add({
       targets: this.advanceIndicator,
       alpha: 0.3,
       yoyo: true,
@@ -67,6 +67,7 @@ export class DialogScene extends Phaser.Scene {
 
     // Dialog system
     this.dialogSystem = new DialogSystem(
+      this,
       (text, speaker) => {
         this.dialogText.setText(text)
         if (speaker) this.speakerText.setText(speaker)
@@ -83,11 +84,19 @@ export class DialogScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-SPACE', () => {
       this.dialogSystem.advance()
     })
+
+    // Cleanup on shutdown
+    this.events.on('shutdown', () => {
+      this.input.keyboard!.off('keydown-SPACE')
+      if (this.advanceTween) {
+        this.advanceTween.stop()
+        this.advanceTween = undefined
+      }
+      this.dialogSystem.destroy()
+    })
   }
 
   private onDialogComplete(): void {
-    this.dialogSystem.destroy()
-
     if (this.sceneData.challengeConfig) {
       this.scene.stop()
       this.scene.launch('ChallengeScene', {

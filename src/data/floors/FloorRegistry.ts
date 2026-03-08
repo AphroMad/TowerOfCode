@@ -10,3 +10,7 @@ for (const f of floors) floorMap.set(f.id, f)
 export function getFloorById(id: string): FloorData | undefined {
   return floorMap.get(id)
 }
+
+export function getAllFloorIds(): string[] {
+  return floors.map(f => f.id)
+}

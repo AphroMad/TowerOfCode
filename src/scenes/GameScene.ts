@@ -1,53 +1,51 @@
 import Phaser from 'phaser'
-import { TILE_SIZE } from '@/config/game.config'
 import { Player } from '@/entities/Player'
 import { NPC } from '@/entities/NPC'
 import { GridMovementSystem } from '@/systems/GridMovementSystem'
 import { InteractionSystem } from '@/systems/InteractionSystem'
+import { NpcBehaviorSystem } from '@/systems/NpcBehaviorSystem'
 import { FloorManager } from '@/systems/FloorManager'
 import { SaveManager } from '@/systems/SaveManager'
 import { getFloorById } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
-import { tileToPixel } from '@/utils/helpers'
-import type { ChallengeConfig, Direction, FloorData, StairData } from '@/data/types'
+import type { ChallengeConfig, Direction, FloorData } from '@/data/types'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
   private npcs: NPC[] = []
   private gridMovement!: GridMovementSystem
   private interaction!: InteractionSystem
-  private floorManager!: FloorManager
+  private behaviorSystem!: NpcBehaviorSystem
+  floorManager!: FloorManager
   private wallLayer!: Phaser.Tilemaps.TilemapLayer
   private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private floor!: FloorData
   private isTransitioning = false
-  private gatekeeperNpc?: NPC
-  private gatekeeperOriginalTileX = 0
 
   constructor() {
     super({ key: 'GameScene' })
   }
 
-  create(data?: { floorId?: string; fromDirection?: 'up' | 'down' }): void {
+  create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; floorData?: FloorData }): void {
     this.isTransitioning = false
 
-    // Resolve floor: from param, then save, fallback to floor-01
+    // Resolve floor: from direct data (test mode), then registry, then save, fallback
     const save = SaveManager.getInstance()
     const floorId = data?.floorId ?? save.getData().currentFloor
-    const floor = getFloorById(floorId) ?? getFloorById('floor-01')!
+    const floor = data?.floorData ?? getFloorById(floorId) ?? getFloorById('floor-01')!
     this.floor = floor
     this.floorManager = new FloorManager(floor)
 
-    // Persist current floor
-    save.setCurrentFloor(floor.id)
+    // Persist current floor (skip in test mode)
+    if (!data?.floorData) save.setCurrentFloor(floor.id)
 
     const map = this.make.tilemap({ key: floor.mapKey })
     const mainTileset = map.addTilesetImage('tileset', floor.tilesetKey)!
     const rockTileset = map.addTilesetImage('rock', 'rock-tiles')
-    const tilesets = [mainTileset, ...(rockTileset ? [rockTileset] : [])]
+    const invisibleTileset = map.addTilesetImage('collision_invisible', 'invisible-wall-tiles')
+    const tilesets = [mainTileset, ...(rockTileset ? [rockTileset] : []), ...(invisibleTileset ? [invisibleTileset] : [])]
 
     // Ground layer
     map.createLayer('Ground', tilesets, 0, 0)
@@ -62,41 +60,34 @@ export class GameScene extends Phaser.Scene {
 
     // Grid movement
     this.gridMovement = new GridMovementSystem(this, this.player, this.wallLayer)
-    this.cursors = this.input.keyboard!.createCursorKeys()
+    if (floor.tileEffects?.length) {
+      this.gridMovement.setTileEffects(floor.tileEffects)
+    }
 
     // NPCs
-    this.gatekeeperNpc = undefined
     this.npcs = floor.npcs.map(npcData => {
       const npc = new NPC(this, npcData)
       this.gridMovement.blockTile(npcData.tileX, npcData.tileY)
-      if (npcData.role === 'gatekeeper') {
-        this.gatekeeperNpc = npc
-        this.gatekeeperOriginalTileX = npcData.tileX
-      }
       return npc
     })
 
-    // If floor already complete on load, reposition gatekeeper immediately
-    if (this.gatekeeperNpc && this.floorManager.isFloorComplete()) {
-      this.repositionGatekeeper(this.gatekeeperNpc, false)
-    }
-
-    // Stair sprites
-    this.renderStairs(floor.stairs)
+    // Behavior system (detect, lookout, patrol)
+    this.behaviorSystem = new NpcBehaviorSystem(this, this.npcs, this.gridMovement, this.player)
 
     // Interaction system
-    this.interaction = new InteractionSystem(this, this.npcs, this.gridMovement)
+    this.interaction = new InteractionSystem(this, this.npcs, this.gridMovement, this.player)
 
     // NPC interaction handler
     this.events.on('npc-interact', (npc: NPC) => {
       this.handleNPCInteraction(npc)
     })
 
-    // On resume (after dialog/challenge), check if gatekeeper should step aside
+    // On resume (after dialog/challenge): flush stale keyboard state and
+    // briefly block interactions so the SPACE that closed dialog can't re-trigger
     this.events.on('resume', () => {
-      if (this.gatekeeperNpc && this.floorManager.isFloorComplete()) {
-        this.repositionGatekeeper(this.gatekeeperNpc, true)
-      }
+      this.input.keyboard!.resetKeys()
+      this.interaction.setEnabled(false)
+      this.time.delayedCall(300, () => this.interaction.setEnabled(true))
     })
 
     // Camera
@@ -142,12 +133,15 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     if (this.gridMovement) {
       this.gridMovement.update()
     }
     if (this.interaction) {
       this.interaction.update()
+    }
+    if (this.behaviorSystem) {
+      this.behaviorSystem.update(delta)
     }
 
     // Y-sort: sprites lower on screen render on top
@@ -184,45 +178,12 @@ export class GameScene extends Phaser.Scene {
     return floor.playerStart
   }
 
-  private renderStairs(stairs: StairData[]): void {
-    for (const stair of stairs) {
-      const x = tileToPixel(stair.tileX)
-      const sprite = this.add.image(x, 0, 'stairs_straight')
-      sprite.setDisplaySize(64, 128)
-      sprite.setDepth(0)
-
-      if (stair.direction === 'up') {
-        // Anchor bottom-center, positioned at bottom of the stair tile → extends up into wall
-        sprite.setOrigin(0.5, 1)
-        sprite.y = stair.tileY * TILE_SIZE + TILE_SIZE
-      } else {
-        // Down-stair: anchor top-center, pushed down so most is off-screen
-        sprite.setOrigin(0.5, 0)
-        sprite.y = stair.tileY * TILE_SIZE + TILE_SIZE / 2
-      }
-
-      // Block flanking tiles and the tile behind the stair
-      const behindY = stair.direction === 'up' ? stair.tileY - 1 : stair.tileY + 1
-      this.gridMovement.blockTile(stair.tileX - 1, stair.tileY)
-      this.gridMovement.blockTile(stair.tileX + 1, stair.tileY)
-      this.gridMovement.blockTile(stair.tileX - 1, behindY)
-      this.gridMovement.blockTile(stair.tileX + 1, behindY)
-      this.gridMovement.blockTile(stair.tileX, behindY)
-    }
-  }
-
   private checkStairTrigger(): void {
     const playerTile = this.gridMovement.getPlayerTile()
     const stair = this.floor.stairs.find(
       s => s.tileX === playerTile.x && s.tileY === playerTile.y
     )
     if (!stair) return
-
-    // Only trigger when the player actively presses the stair's direction
-    const pressing = stair.direction === 'up'
-      ? this.cursors.up.isDown
-      : this.cursors.down.isDown
-    if (!pressing) return
 
     const i18n = I18nManager.getInstance()
 
@@ -271,41 +232,11 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private repositionGatekeeper(gatekeeper: NPC, animate: boolean): void {
-    const targetTileX = this.gatekeeperOriginalTileX - 2
-    const targetTileY = gatekeeper.data.tileY
-
-    // Unblock original tile
-    this.gridMovement.unblockTile(this.gatekeeperOriginalTileX, targetTileY)
-
-    if (animate) {
-      // Face left, tween to new position
-      gatekeeper.faceDirection('left')
-      this.gridMovement.blockTile(targetTileX, targetTileY)
-      this.tweens.add({
-        targets: gatekeeper.sprite,
-        x: tileToPixel(targetTileX),
-        duration: 400,
-        ease: 'Power2',
-        onComplete: () => {
-          gatekeeper.faceDirection('down')
-        },
-      })
-    } else {
-      // Snap immediately (floor was already complete on load)
-      gatekeeper.sprite.setPosition(tileToPixel(targetTileX), gatekeeper.sprite.y)
-      this.gridMovement.blockTile(targetTileX, targetTileY)
-      gatekeeper.faceDirection('down')
-    }
-  }
-
   private handleNPCInteraction(npc: NPC): void {
-    let dialogKey = npc.data.dialogKey
+    const dialogKey = npc.data.dialogKey
     let challengeConfig: ChallengeConfig | undefined
 
-    if (npc.data.role === 'gatekeeper') {
-      dialogKey = this.floorManager.getGatekeeperDialogKey()
-    } else if (npc.data.challengeId) {
+    if (npc.data.challengeId) {
       challengeConfig = getChallenge(npc.data.challengeId)
     }
 
@@ -314,7 +245,6 @@ export class GameScene extends Phaser.Scene {
       dialogKey,
       npcName: npc.data.name,
       challengeConfig,
-      npcRole: npc.data.role,
     })
   }
 }

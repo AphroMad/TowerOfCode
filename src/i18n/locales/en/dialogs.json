@@ -1,13 +1,4 @@
 {
-  "game_title": "Tower of Code",
-  "menu_start": "Press SPACE to start",
-  "menu_continue": "Continue",
-  "menu_new_game": "New Game",
-  "game_esc_menu": "[ESC] Menu",
-  "menu_language": "Language",
-  "floor_01_name": "The Entrance Hall",
-  "floor_02_name": "The Study",
-
   "professor_pi_intro": [
     "Welcome to the Tower of Code!",
     "I'm Professor Pi, and I have a lesson prepared for you.",
@@ -69,29 +60,6 @@
     "Tip: Variables can store different types of data - numbers, text, and more!",
     "Good luck with the Professor's challenge!"
   ],
-
-  "challenge_choose_option": "Choose the correct value:",
-  "challenge_select_buggy_line": "Select the line with the bug:",
-
-  "challenge_type_answer": "Type your answer:",
-  "challenge_reorder_lines": "Reorder the lines (UP/DOWN, SPACE to grab/drop, ENTER to submit):",
-  "challenge_match_pairs": "Match the pairs (UP/DOWN + SPACE to select):",
-  "challenge_write_code": "Write your code:",
-  "challenge_expected_output": "Expected answer:",
-  "challenge_enter_submit": "[ENTER] to submit",
-
-  "challenge_correct": "Well done!",
-  "challenge_wrong": "Not quite... Try again!",
-  "challenge_title": "Challenge",
-
-  "floor_complete": "Floor Complete!",
-  "floor_complete_msg": "You've mastered this floor's challenges!",
-
-  "save_loaded": "Game loaded!",
-  "save_created": "New game started!",
-
-  "stairs_coming_soon": "The upper floors are still under construction...",
-  "stairs_blocked": "Complete all challenges before ascending!",
 
   "explorer_flavor": [
     "I've been wandering these corridors for ages!",

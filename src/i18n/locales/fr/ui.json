@@ -1,0 +1,29 @@
+{
+  "game_title": "Tower of Code",
+  "menu_start": "Appuyez sur ESPACE pour commencer",
+  "menu_continue": "Continuer",
+  "menu_new_game": "Nouvelle Partie",
+  "game_esc_menu": "[ESC] Menu",
+  "menu_language": "Langue",
+
+  "challenge_choose_option": "Choisis la bonne valeur :",
+  "challenge_select_buggy_line": "Sélectionne la ligne avec le bug :",
+  "challenge_type_answer": "Tape ta réponse :",
+  "challenge_reorder_lines": "Réordonne les lignes (HAUT/BAS, ESPACE pour saisir/déposer, ENTRÉE pour valider) :",
+  "challenge_match_pairs": "Associe les paires (HAUT/BAS + ESPACE pour sélectionner) :",
+  "challenge_write_code": "Écris ton code :",
+  "challenge_expected_output": "Réponse attendue :",
+  "challenge_enter_submit": "[ENTRÉE] pour valider",
+  "challenge_correct": "Bien joué !",
+  "challenge_wrong": "Pas tout à fait... Essaie encore !",
+  "challenge_title": "Défi",
+
+  "floor_complete": "Étage Terminé !",
+  "floor_complete_msg": "Tu as maîtrisé les défis de cet étage !",
+
+  "save_loaded": "Partie chargée !",
+  "save_created": "Nouvelle partie commencée !",
+
+  "stairs_coming_soon": "Les étages supérieurs sont encore en construction...",
+  "stairs_blocked": "Termine tous les défis avant de monter !"
+}

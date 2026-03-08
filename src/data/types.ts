@@ -5,100 +5,130 @@ export interface LocalizedText {
 
 export type Direction = 'down' | 'up' | 'left' | 'right'
 
+export type NpcBehavior = 'static' | 'detect' | 'lookout' | 'patrol'
+
 export interface NPCData {
-  id: string
   name: string
   tileX: number
   tileY: number
-  spriteKey: string
-  frame?: number
   facing: Direction
-  dialogKey: string
+  spriteKey: string
+  behavior: NpcBehavior
+  dialogKey?: string
   challengeId?: string
-  tint?: number
-  role: 'professor' | 'gatekeeper' | 'flavor'
+  lookoutPattern?: Direction[]
+  lookoutTempo?: number
+  patrolPath?: { x: number; y: number }[]
 }
 
-export interface ChallengeOption {
-  text: LocalizedText
-  correct: boolean
+// --- CL Exercise format ---
+
+export interface ClContentBlock {
+  type: 'text' | 'codeBlock' | 'codeEditorRun' | 'image' | 'infoCard'
+  language?: string
+  value: LocalizedText | string
+  caption?: LocalizedText
+  cardType?: string
+  expandable?: boolean
+  initiallyExpanded?: boolean
+  title?: LocalizedText
+  content?: LocalizedText | string
 }
 
-// --- Challenge config discriminated union ---
-
-interface ChallengeBase {
+interface ClBase {
   id: string
-  explanation: LocalizedText
-  timeLimit?: number
-}
-
-export interface MultipleChoiceConfig extends ChallengeBase {
-  type: 'multiple-choice'
-  question: LocalizedText
-  options: ChallengeOption[]
-}
-
-export interface FillInBlankConfig extends ChallengeBase {
-  type: 'fill-in-blank'
-  question: LocalizedText
-  codeTemplate: string
-  acceptedAnswers: string[]
-}
-
-export interface DebugCodeConfig extends ChallengeBase {
-  type: 'debug-code'
-  question: LocalizedText
-  codeLines: string[]
-  bugLineIndex: number
-}
-
-export interface DragDropConfig extends ChallengeBase {
-  type: 'drag-drop'
-  question: LocalizedText
-  correctOrder: string[]
-}
-
-export interface MatchingConfig extends ChallengeBase {
-  type: 'matching'
-  question: LocalizedText
-  pairs: { left: LocalizedText; right: LocalizedText }[]
-}
-
-export interface CodeEditorConfig extends ChallengeBase {
-  type: 'code-editor'
-  question: LocalizedText
-  starterCode: string
-  expectedOutput: string
-}
-
-export interface ExplanationPage {
+  metadata?: {
+    difficulty?: string
+    tags?: string[]
+  }
   title: LocalizedText
-  text: LocalizedText
-  codeExample?: string
 }
 
-export interface ExplanationConfig extends ChallengeBase {
-  type: 'explanation'
-  pages: ExplanationPage[]
+export interface ClExplanationConfig extends ClBase {
+  type: 'cl-explanation'
+  content: {
+    question: ClContentBlock[]
+  }
 }
 
-export interface FillInChoiceConfig extends ChallengeBase {
-  type: 'fill-in-choice'
-  question: LocalizedText
-  codeTemplate: string
-  correctAnswers: string[]
-  options: string[]
+export interface ClMultipleChoiceOption {
+  type: 'text'
+  value: LocalizedText
+  language?: string
+}
+
+export interface ClMultipleChoiceConfig extends ClBase {
+  type: 'cl-multiple-choice'
+  content: {
+    question: ClContentBlock[]
+    exercise: {
+      options: ClMultipleChoiceOption[]
+      correctAnswer: number
+    }
+    hint: LocalizedText
+  }
+}
+
+export interface ClFillInTextConfig extends ClBase {
+  type: 'cl-fill-in-text'
+  content: {
+    question: ClContentBlock[]
+    exercise: {
+      run?: boolean
+      language: string
+      text: string
+      options: string[]
+      correctAnswers: Record<string, string>
+    }
+    hint: LocalizedText
+  }
+}
+
+export interface ClMatchingPair {
+  id: string
+  term: { type: 'text'; value: string }
+  match: { type: 'text'; value: LocalizedText | string }
+}
+
+export interface ClMatchingPairsConfig extends ClBase {
+  type: 'cl-matching-pairs'
+  content: {
+    question: ClContentBlock[]
+    exercise: {
+      pairs: ClMatchingPair[]
+    }
+  }
+}
+
+export interface ClChallengeConfig extends ClBase {
+  type: 'cl-challenge'
+  content: {
+    question: ClContentBlock[]
+    exercise: {
+      language: string
+      value: LocalizedText
+    }
+    solution: ClContentBlock[]
+  }
 }
 
 export type ChallengeConfig =
-  | MultipleChoiceConfig
-  | FillInBlankConfig
-  | DebugCodeConfig
-  | DragDropConfig
-  | MatchingConfig
-  | CodeEditorConfig
-  | ExplanationConfig
-  | FillInChoiceConfig
+  | ClExplanationConfig
+  | ClMultipleChoiceConfig
+  | ClFillInTextConfig
+  | ClMatchingPairsConfig
+  | ClChallengeConfig
+
+// --- Tile Effects ---
+
+export type TileEffectType = 'ice' | 'redirect'
+
+export interface TileEffectData {
+  tileX: number
+  tileY: number
+  effect: TileEffectType
+  direction?: Direction // required for 'redirect'
+}
 
 // --- Stairs ---
 
@@ -120,6 +150,7 @@ export interface FloorData {
   npcs: NPCData[]
   requiredChallenges: string[]
   stairs: StairData[]
+  tileEffects?: TileEffectData[]
 }
 
 export interface SaveData {

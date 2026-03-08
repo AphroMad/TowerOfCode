@@ -13,9 +13,6 @@ export class BootScene extends Phaser.Scene {
     for (const tile of getAllTiles()) {
       this.load.image(tile.key, tile.url)
     }
-    // Tilemap
-    this.load.tilemapTiledJSON('floor-01', 'assets/maps/floor-01.json')
-    this.load.tilemapTiledJSON('floor-02', 'assets/maps/floor-02.json')
     // Player: 256x256 sheet, 4 cols x 4 rows = 64x64 per frame
     this.load.spritesheet('player', 'assets/sprites/player.png', {
       frameWidth: 64,

@@ -58,35 +58,20 @@ export class Toolbar {
     // Import/Export
     const ioGroup = this.makeGroup(el)
 
-    const impJsonBtn = document.createElement('button')
-    impJsonBtn.textContent = 'Import JSON'
-    impJsonBtn.className = 'editor-btn editor-btn-sm'
-    impJsonBtn.title = 'Load a Tiled map JSON file (tile layers only)'
-    impJsonBtn.addEventListener('click', () => this.io.promptImportJson())
-    ioGroup.appendChild(impJsonBtn)
+    const impBtn = document.createElement('button')
+    impBtn.textContent = 'Import'
+    impBtn.className = 'editor-btn editor-btn-sm'
+    impBtn.title = 'Load a floor .ts file (tiles, NPCs, stairs, spawn)'
+    impBtn.addEventListener('click', () => this.io.promptImport())
+    ioGroup.appendChild(impBtn)
 
-    const impTsBtn = document.createElement('button')
-    impTsBtn.textContent = 'Import TS'
-    impTsBtn.className = 'editor-btn editor-btn-sm'
-    impTsBtn.title = 'Load a floor config .ts file (NPCs, stairs, spawn)'
-    impTsBtn.addEventListener('click', () => this.io.promptImportTs())
-    ioGroup.appendChild(impTsBtn)
-
-    const expJsonBtn = document.createElement('button')
-    expJsonBtn.textContent = 'Export JSON'
-    expJsonBtn.className = 'editor-btn'
-    expJsonBtn.style.background = '#335533'
-    expJsonBtn.title = 'Download Tiled-compatible map JSON for public/assets/maps/'
-    expJsonBtn.addEventListener('click', () => this.io.downloadJson())
-    ioGroup.appendChild(expJsonBtn)
-
-    const expTsBtn = document.createElement('button')
-    expTsBtn.textContent = 'Export TS'
-    expTsBtn.className = 'editor-btn'
-    expTsBtn.style.background = '#335533'
-    expTsBtn.title = 'Download floor config TypeScript for src/data/floors/'
-    expTsBtn.addEventListener('click', () => this.io.downloadTs())
-    ioGroup.appendChild(expTsBtn)
+    const expBtn = document.createElement('button')
+    expBtn.textContent = 'Export'
+    expBtn.className = 'editor-btn'
+    expBtn.style.background = '#335533'
+    expBtn.title = 'Download floor .ts file for src/data/floors/'
+    expBtn.addEventListener('click', () => this.io.downloadFloor())
+    ioGroup.appendChild(expBtn)
 
     this.makeSep(el)
 

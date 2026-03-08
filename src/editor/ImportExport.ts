@@ -4,22 +4,6 @@ import type { Direction, NPCData, StairData } from '@/data/types'
 const AUTOSAVE_KEY = 'editor_autosave'
 const AUTOSAVE_DEBOUNCE = 1000
 
-/** Legacy numeric tile ID → new string key mapping */
-const LEGACY_ID_MAP: Record<number, string> = {
-  0: '',
-  1: 'ground/basic/1',
-  2: 'ground/basic/2',
-  3: 'ground/basic/3',
-  4: 'ground/basic/4',
-  5: 'ground/basic/5',
-  6: 'ground/basic/6',
-  7: 'ground/basic/7',
-  8: 'ground/basic/8',
-  9: 'ground/basic/9',
-  10: 'objects/rock',
-  11: 'objects/collision_invisible',
-}
-
 export class ImportExport {
   private state: EditorState
   private saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -63,17 +47,14 @@ export class ImportExport {
     if (!raw) return false
     try {
       const data = JSON.parse(raw)
-
-      // Migrate legacy number[] layers to string[]
-      const groundLayer = this.migrateLayer(data.groundLayer, MAP_W * MAP_H, '')
-      const wallsLayer = this.migrateLayer(data.wallsLayer, MAP_W * MAP_H, '')
+      const size = MAP_W * MAP_H
 
       this.state.loadState({
         floorId: data.floorId || 'floor-01',
         floorName: data.floorName || 'New Floor',
-        groundLayer,
-        wallsLayer,
-        effectsLayer: data.effectsLayer || new Array(MAP_W * MAP_H).fill(0),
+        groundLayer: Array.isArray(data.groundLayer) ? data.groundLayer : new Array(size).fill(''),
+        wallsLayer: Array.isArray(data.wallsLayer) ? data.wallsLayer : new Array(size).fill(''),
+        effectsLayer: data.effectsLayer || new Array(size).fill(0),
         playerSpawn: data.playerSpawn || null,
         npcs: (data.npcs || []).map((n: Record<string, unknown>) => ({
           ...n,
@@ -87,20 +68,6 @@ export class ImportExport {
     }
   }
 
-  /** Convert legacy number[] to string[], or pass through if already string[] */
-  private migrateLayer(layer: unknown[] | undefined, size: number, fallback: string): string[] {
-    if (!layer || !Array.isArray(layer)) return new Array(size).fill(fallback)
-    if (layer.length === 0) return new Array(size).fill(fallback)
-
-    // Detect legacy: first non-empty value is a number
-    if (typeof layer[0] === 'number') {
-      return (layer as number[]).map(id => LEGACY_ID_MAP[id] ?? '')
-    }
-
-    // Already string[]
-    return layer as string[]
-  }
-
   clearAll(): void {
     const toRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
@@ -110,98 +77,23 @@ export class ImportExport {
     for (const k of toRemove) localStorage.removeItem(k)
   }
 
-  // ── Export JSON (Tiled format) ──
-
-  exportMapJson(): string {
-    const d = this.state.snapshot
-
-    // Collect all unique tile keys used across both layers
-    const usedKeys = new Set<string>()
-    for (const key of d.groundLayer) if (key !== '') usedKeys.add(key)
-    for (const key of d.wallsLayer) if (key !== '') usedKeys.add(key)
-
-    // Sort for deterministic GID assignment
-    const sortedKeys = [...usedKeys].sort()
-
-    // Assign GIDs: each tile key gets its own tileset entry with firstgid
-    const keyToGid = new Map<string, number>()
-    const tilesets: object[] = []
-    let nextGid = 1
-
-    for (const key of sortedKeys) {
-      keyToGid.set(key, nextGid)
-      tilesets.push({
-        columns: 1,
-        firstgid: nextGid,
-        image: `../../assets/tilesets/${key}.png`,
-        imageheight: 32,
-        imagewidth: 32,
-        margin: 0,
-        name: key,
-        spacing: 0,
-        tilecount: 1,
-        tileheight: 32,
-        tilewidth: 32,
-      })
-      nextGid++
-    }
-
-    // Convert string layers to GID number layers
-    const toGidLayer = (layer: readonly string[]): number[] =>
-      layer.map(key => key === '' ? 0 : (keyToGid.get(key) ?? 0))
-
-    const map = {
-      compressionlevel: -1,
-      height: MAP_H,
-      width: MAP_W,
-      infinite: false,
-      orientation: 'orthogonal',
-      renderorder: 'right-down',
-      tilewidth: 32,
-      tileheight: 32,
-      tiledversion: '1.10.2',
-      type: 'map',
-      version: '1.10',
-      nextlayerid: 3,
-      nextobjectid: 1,
-      layers: [
-        {
-          data: toGidLayer(d.groundLayer),
-          height: MAP_H,
-          width: MAP_W,
-          id: 1,
-          name: 'Ground',
-          opacity: 1,
-          type: 'tilelayer',
-          visible: true,
-          x: 0,
-          y: 0,
-        },
-        {
-          data: toGidLayer(d.wallsLayer),
-          height: MAP_H,
-          width: MAP_W,
-          id: 2,
-          name: 'Walls',
-          opacity: 1,
-          type: 'tilelayer',
-          visible: true,
-          x: 0,
-          y: 0,
-        },
-      ],
-      tilesets,
-    }
-
-    return JSON.stringify(map, null, 2)
-  }
-
-  // ── Export TS (FloorData) ──
+  // ── Export TS (FloorData — single file with everything) ──
 
   exportFloorTs(): string {
     const d = this.state.snapshot
     const varName = d.floorId.replace(/-/g, '')
     const spawn = d.playerSpawn || { tileX: 10, tileY: 12, facing: 'up' }
+
+    // Format tile layers (20 items per row)
+    const formatLayer = (layer: readonly string[]): string => {
+      const rows: string[] = []
+      for (let row = 0; row < MAP_H; row++) {
+        const start = row * MAP_W
+        const items = layer.slice(start, start + MAP_W).map(k => `'${k}'`)
+        rows.push('    ' + items.join(', ') + ',')
+      }
+      return rows.join('\n')
+    }
 
     const npcStr = d.npcs.map(n => {
       const fields: string[] = [
@@ -226,7 +118,7 @@ export class ImportExport {
 
     const stairStr = d.stairs.map(s => {
       const target = s.targetFloorId ? `'${s.targetFloorId}'` : 'null'
-      return `    { direction: '${s.direction}', tileX: ${s.tileX}, tileY: ${s.tileY}, targetFloorId: ${target} }`
+      return `    { tileX: ${s.tileX}, tileY: ${s.tileY}, targetFloorId: ${target} }`
     }).join(',\n')
 
     const required = d.npcs
@@ -264,7 +156,12 @@ export class ImportExport {
 export const ${varName}: FloorData = {
   id: '${d.floorId}',
   name: '${d.floorName}',
-  mapKey: '${d.floorId}',
+  groundLayer: [
+${formatLayer(d.groundLayer)}
+  ],
+  wallsLayer: [
+${formatLayer(d.wallsLayer)}
+  ],
   playerStart: { tileX: ${spawn.tileX}, tileY: ${spawn.tileY}, facing: '${spawn.facing}' },
   npcs: [
 ${npcStr}
@@ -279,49 +176,6 @@ ${stairStr}
 `
   }
 
-  // ── Import JSON ──
-
-  importMapJson(json: string): boolean {
-    try {
-      const map = JSON.parse(json)
-      const groundData = map.layers?.find((l: { name: string }) => l.name === 'Ground')
-      const wallsData = map.layers?.find((l: { name: string }) => l.name === 'Walls')
-
-      // Build GID → key mapping from tilesets
-      const gidToKey = new Map<number, string>()
-      if (map.tilesets) {
-        for (const ts of map.tilesets as { firstgid: number; name: string; tilecount: number }[]) {
-          // Legacy format: tileset with tilecount > 1 (old spritesheet)
-          if (ts.name === 'tileset' && ts.tilecount === 9) {
-            for (let i = 0; i < 9; i++) {
-              gidToKey.set(ts.firstgid + i, `ground/basic/${i + 1}`)
-            }
-          } else if (ts.name === 'rock') {
-            gidToKey.set(ts.firstgid, 'objects/rock')
-          } else if (ts.name === 'collision_invisible') {
-            gidToKey.set(ts.firstgid, 'objects/collision_invisible')
-          } else {
-            // New format: name IS the tile key, tilecount=1
-            gidToKey.set(ts.firstgid, ts.name)
-          }
-        }
-      }
-
-      const convertLayer = (data: number[] | undefined): string[] => {
-        if (!data) return new Array(MAP_W * MAP_H).fill('')
-        return data.map(gid => gid === 0 ? '' : (gidToKey.get(gid) ?? ''))
-      }
-
-      this.state.loadState({
-        groundLayer: convertLayer(groundData?.data),
-        wallsLayer: convertLayer(wallsData?.data),
-      })
-      return true
-    } catch {
-      return false
-    }
-  }
-
   // ── Import TS (best-effort regex parse) ──
 
   importFloorTs(text: string): boolean {
@@ -329,6 +183,10 @@ ${stairStr}
       const idMatch = text.match(/id:\s*'([^']+)'/)
       const nameMatch = text.match(/name:\s*'([^']+)'/)
       const spawnMatch = text.match(/playerStart:\s*\{\s*tileX:\s*(\d+),\s*tileY:\s*(\d+),\s*facing:\s*'(\w+)'/)
+
+      // Parse tile layers
+      const groundLayer = this.parseStringArray(text, 'groundLayer')
+      const wallsLayer = this.parseStringArray(text, 'wallsLayer')
 
       const npcsBlockMatch = text.match(/npcs:\s*\[([\s\S]*?)\]\s*,\s*(?:requiredChallenges|stairs)/)
       const npcs: NPCData[] = []
@@ -374,7 +232,7 @@ ${stairStr}
       const stairsBlockMatch = text.match(/stairs:\s*\[([\s\S]*?)\]\s*,?\s*\}/)
       const stairs: StairData[] = []
       if (stairsBlockMatch) {
-        const stairRegex = /\{[^}]*direction:\s*'(\w+)'[^}]*\}/g
+        const stairRegex = /\{[^}]*tileX:\s*\d+[^}]*\}/g
         let match
         while ((match = stairRegex.exec(stairsBlockMatch[1])) !== null) {
           const block = match[0]
@@ -383,7 +241,6 @@ ${stairStr}
           const stairY = this.extractNum(block, 'tileY')
           if (stairX >= 0 && stairX < MAP_W && stairY >= 0 && stairY < MAP_H) {
             stairs.push({
-              direction: (this.extractStr(block, 'direction') || 'up') as 'up' | 'down',
               tileX: stairX,
               tileY: stairY,
               targetFloorId: targetMatch?.[1] || null,
@@ -418,6 +275,8 @@ ${stairStr}
       this.state.loadState({
         floorId: idMatch?.[1] || this.state.snapshot.floorId,
         floorName: nameMatch?.[1] || this.state.snapshot.floorName,
+        groundLayer,
+        wallsLayer,
         playerSpawn: spawnMatch ? {
           tileX: parseInt(spawnMatch[1]),
           tileY: parseInt(spawnMatch[2]),
@@ -433,6 +292,19 @@ ${stairStr}
     }
   }
 
+  /** Parse a named string[] field from TS source (e.g. groundLayer: ['a', 'b', ...]) */
+  private parseStringArray(text: string, fieldName: string): string[] {
+    const regex = new RegExp(`${fieldName}:\\s*\\[([\\s\\S]*?)\\]\\s*,`)
+    const match = text.match(regex)
+    if (!match) return new Array(MAP_W * MAP_H).fill('')
+    // Extract all quoted strings (handles both '' and 'value')
+    const items = [...match[1].matchAll(/'([^']*)'/g)].map(m => m[1])
+    // Pad or truncate to expected size
+    const size = MAP_W * MAP_H
+    if (items.length >= size) return items.slice(0, size)
+    return [...items, ...new Array(size - items.length).fill('')]
+  }
+
   private extractStr(block: string, key: string): string | null {
     const m = block.match(new RegExp(`${key}:\\s*'([^']*)'`))
     return m ? m[1] : null
@@ -443,16 +315,27 @@ ${stairStr}
     return m ? parseInt(m[1]) : NaN
   }
 
-  // ── File download helpers ──
+  // ── File download / upload ──
 
-  downloadJson(): void {
-    const json = this.exportMapJson()
-    this.download(`${this.state.snapshot.floorId}.json`, json, 'application/json')
-  }
-
-  downloadTs(): void {
+  downloadFloor(): void {
     const ts = this.exportFloorTs()
     this.download(`${this.state.snapshot.floorId}.ts`, ts, 'text/typescript')
+  }
+
+  promptImport(): void {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.ts'
+    input.addEventListener('change', () => {
+      const file = input.files?.[0]
+      if (!file) return
+      file.text().then(text => {
+        if (!this.importFloorTs(text)) {
+          alert('Failed to parse floor file')
+        }
+      }).catch(() => alert('Failed to read file'))
+    })
+    input.click()
   }
 
   private download(filename: string, content: string, mime: string): void {
@@ -465,39 +348,5 @@ ${stairStr}
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }
-
-  // ── File upload helpers ──
-
-  promptImportJson(): void {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.addEventListener('change', () => {
-      const file = input.files?.[0]
-      if (!file) return
-      file.text().then(text => {
-        if (!this.importMapJson(text)) {
-          alert('Failed to parse JSON map file')
-        }
-      }).catch(() => alert('Failed to read file'))
-    })
-    input.click()
-  }
-
-  promptImportTs(): void {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.ts'
-    input.addEventListener('change', () => {
-      const file = input.files?.[0]
-      if (!file) return
-      file.text().then(text => {
-        if (!this.importFloorTs(text)) {
-          alert('Failed to parse TS floor file')
-        }
-      }).catch(() => alert('Failed to read file'))
-    })
-    input.click()
   }
 }

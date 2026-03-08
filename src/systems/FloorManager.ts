@@ -26,9 +26,4 @@ export class FloorManager {
   isFloorComplete(): boolean {
     return this.totalCount > 0 && this.completedCount >= this.totalCount
   }
-
-  /** Dialog key for the gatekeeper based on floor completion */
-  getGatekeeperDialogKey(): string {
-    return this.isFloorComplete() ? 'gatekeeper_pass' : 'gatekeeper_block'
-  }
 }

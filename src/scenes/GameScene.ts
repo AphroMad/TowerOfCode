@@ -10,6 +10,7 @@ import { getFloorById } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
 import type { ChallengeConfig, Direction, FloorData } from '@/data/types'
+import { buildTiledMapJson } from '@/utils/buildTiledMapJson'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
@@ -28,7 +29,7 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
   }
 
-  create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; floorData?: FloorData }): void {
+  create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; fromFloorId?: string; floorData?: FloorData }): void {
     this.isTransitioning = false
 
     // Resolve floor: from direct data (test mode), then registry, then save, fallback
@@ -41,7 +42,14 @@ export class GameScene extends Phaser.Scene {
     // Persist current floor (skip in test mode)
     if (!data?.floorData) save.setCurrentFloor(floor.id)
 
-    const map = this.make.tilemap({ key: floor.mapKey })
+    // Build Tiled JSON from floor tile data and inject into cache
+    const mapJson = buildTiledMapJson(floor.groundLayer, floor.wallsLayer)
+    this.cache.tilemap.add(floor.id, {
+      data: mapJson,
+      format: Phaser.Tilemaps.Formats.TILED_JSON,
+    })
+
+    const map = this.make.tilemap({ key: floor.id })
     // Dynamically bind all tilesets referenced in the JSON
     const tilesets: Phaser.Tilemaps.Tileset[] = []
     for (const tsData of map.tilesets) {
@@ -57,7 +65,7 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer = map.createLayer('Walls', tilesets, 0, 0)!
 
     // Determine player spawn: near the arrival stair, or default playerStart
-    const spawn = this.resolveSpawn(floor, data?.fromDirection)
+    const spawn = this.resolveSpawn(floor, data?.fromDirection, data?.fromFloorId)
     this.player = new Player(this, spawn.tileX, spawn.tileY)
     this.player.facing = spawn.facing
 
@@ -162,22 +170,16 @@ export class GameScene extends Phaser.Scene {
   private resolveSpawn(
     floor: FloorData,
     fromDirection?: 'up' | 'down',
+    fromFloorId?: string,
   ): { tileX: number; tileY: number; facing: Direction } {
-    if (fromDirection) {
-      // Player went UP → they arrive at the target floor's down-stair (the return stair)
-      // Player went DOWN → they arrive at the target floor's up-stair
-      const returnDir = fromDirection === 'up' ? 'down' : 'up'
-      const stair = floor.stairs.find(s => s.direction === returnDir)
+    if (fromDirection === 'down' && fromFloorId) {
+      // Player went DOWN → spawn at the stair that links back to the source floor
+      const stair = floor.stairs.find(s => s.targetFloorId === fromFloorId)
       if (stair) {
-        // Spawn one tile in front of the stair (away from the exit direction)
-        const offsetY = returnDir === 'down' ? -1 : 1
-        return {
-          tileX: stair.tileX,
-          tileY: stair.tileY + offsetY,
-          facing: returnDir === 'down' ? 'down' : 'up',
-        }
+        return { tileX: stair.tileX, tileY: stair.tileY + 1, facing: 'down' }
       }
     }
+    // Player went UP or default → spawn at playerStart
     return floor.playerStart
   }
 
@@ -197,6 +199,9 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
+    // Determine direction: stair above spawn → going up, below → going down
+    const fromDirection = stair.tileY < this.floor.playerStart.tileY ? 'up' : 'down'
+
     // Transition to target floor
     this.isTransitioning = true
     const targetFloor = getFloorById(stair.targetFloorId)
@@ -204,7 +209,8 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('TransitionScene', {
       floorId: stair.targetFloorId,
       floorName: targetFloor ? i18n.t(floorNameKey) : stair.targetFloorId,
-      fromDirection: stair.direction,
+      fromDirection,
+      fromFloorId: this.floor.id,
     })
   }
 

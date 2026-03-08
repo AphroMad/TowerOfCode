@@ -5,6 +5,7 @@ interface TransitionData {
   floorId: string
   floorName: string
   fromDirection?: 'up' | 'down'
+  fromFloorId?: string
 }
 
 export class TransitionScene extends Phaser.Scene {
@@ -50,7 +51,7 @@ export class TransitionScene extends Phaser.Scene {
                 onComplete: () => {
                   // 4. Restart GameScene with new floor, then stop self
                   // scene.start() auto-stops a running scene, avoiding race conditions
-                  this.scene.start('GameScene', { floorId, fromDirection: data.fromDirection })
+                  this.scene.start('GameScene', { floorId, fromDirection: data.fromDirection, fromFloorId: data.fromFloorId })
                   this.scene.stop()
                 },
               })

@@ -133,7 +133,6 @@ export class EditorCanvas {
         } else if (d.placingEntity === 'stair') {
           this.state.mutateQuiet(md => {
             md.stairs.push({
-              direction: 'up',
               tileX: tile.x,
               tileY: tile.y,
               targetFloorId: null,

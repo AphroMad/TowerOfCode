@@ -133,7 +133,6 @@ export interface TileEffectData {
 // --- Stairs ---
 
 export interface StairData {
-  direction: 'up' | 'down'
   tileX: number
   tileY: number
   targetFloorId: string | null // null = floor doesn't exist yet
@@ -144,7 +143,8 @@ export interface StairData {
 export interface FloorData {
   id: string
   name: string
-  mapKey: string
+  groundLayer: string[]
+  wallsLayer: string[]
   playerStart: { tileX: number; tileY: number; facing: Direction }
   npcs: NPCData[]
   requiredChallenges: string[]

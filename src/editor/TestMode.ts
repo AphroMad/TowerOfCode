@@ -1,6 +1,5 @@
 import Phaser from 'phaser'
 import type { EditorState } from './EditorState'
-import type { ImportExport } from './ImportExport'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
 import { GameScene } from '@/scenes/GameScene'
 import { DialogScene } from '@/scenes/DialogScene'
@@ -11,20 +10,17 @@ import { getAllTiles } from '@/data/tiles/TileRegistry'
 
 /**
  * Boot scene for editor test mode.
- * Loads the same assets as BootScene, injects map JSON into cache,
- * then starts GameScene with the editor's floor data.
+ * Loads assets then starts GameScene with the editor's floor data.
+ * (GameScene handles tilemap injection from FloorData itself.)
  */
 class EditorBootScene extends Phaser.Scene {
-  // Static data set before Phaser game is created (avoids init timing issues)
   static pendingFloorData: FloorData
-  static pendingMapJson: object
 
   constructor() {
     super({ key: 'EditorBootScene' })
   }
 
   preload(): void {
-    // Load all tiles from registry
     for (const tile of getAllTiles()) {
       this.load.image(tile.key, tile.url)
     }
@@ -42,15 +38,6 @@ class EditorBootScene extends Phaser.Scene {
 
   create(): void {
     const floorData = EditorBootScene.pendingFloorData
-    const mapJson = EditorBootScene.pendingMapJson
-
-    // Inject the editor's map JSON into Phaser's tilemap cache
-    this.cache.tilemap.add(floorData.mapKey, {
-      data: mapJson,
-      format: Phaser.Tilemaps.Formats.TILED_JSON,
-    })
-
-    // Start the game scene with editor floor data
     this.scene.start('GameScene', {
       floorId: floorData.id,
       floorData,
@@ -67,13 +54,12 @@ class EditorMenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    // When GameScene goes to menu (ESC), stop the test
     document.dispatchEvent(new CustomEvent('editor-stop-test'))
   }
 }
 
 /**
- * Stub transition scene that just restarts GameScene (no floor switching in test mode).
+ * Stub transition scene (no floor switching in test mode).
  */
 class EditorTransitionScene extends Phaser.Scene {
   constructor() {
@@ -81,7 +67,6 @@ class EditorTransitionScene extends Phaser.Scene {
   }
 
   create(): void {
-    // In test mode, floor transitions aren't supported — just show a message
     const text = this.add.text(
       CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2,
       'Floor transition not available in test mode.\nPress ESC to return to editor.',
@@ -100,7 +85,6 @@ class EditorTransitionScene extends Phaser.Scene {
       document.dispatchEvent(new CustomEvent('editor-stop-test'))
     })
 
-    // Auto-return after 3 seconds
     this.time.delayedCall(3000, () => {
       text.destroy()
       document.dispatchEvent(new CustomEvent('editor-stop-test'))
@@ -110,15 +94,13 @@ class EditorTransitionScene extends Phaser.Scene {
 
 export class TestMode {
   private state: EditorState
-  private io: ImportExport
   private game: Phaser.Game | null = null
   private active = false
   private listeners: (() => void)[] = []
   private stopHandler: () => void
 
-  constructor(state: EditorState, io: ImportExport) {
+  constructor(state: EditorState) {
     this.state = state
-    this.io = io
     this.stopHandler = () => this.stop()
   }
 
@@ -144,14 +126,12 @@ export class TestMode {
     }
 
     const floorData = this.buildFloorData(spawn)
-    const mapJson = JSON.parse(this.io.exportMapJson())
 
     this.setEditorVisible(false)
     this.createTestContainer(floorData)
     document.addEventListener('editor-stop-test', this.stopHandler)
 
     EditorBootScene.pendingFloorData = floorData
-    EditorBootScene.pendingMapJson = mapJson
     this.game = this.createPhaserGame()
 
     this.active = true
@@ -164,7 +144,8 @@ export class TestMode {
     return {
       id: d.floorId || 'test-floor',
       name: d.floorName || 'Test Floor',
-      mapKey: 'editor-test-map',
+      groundLayer: [...d.groundLayer],
+      wallsLayer: [...d.wallsLayer],
       playerStart: {
         tileX: spawn.tileX,
         tileY: spawn.tileY,
@@ -251,17 +232,14 @@ export class TestMode {
 
     document.removeEventListener('editor-stop-test', this.stopHandler)
 
-    // Destroy Phaser game
     if (this.game) {
       this.game.destroy(true)
       this.game = null
     }
 
-    // Remove game container
     const container = document.getElementById('test-game-container')
     if (container) container.remove()
 
-    // Show editor UI
     this.setEditorVisible(true)
 
     this.active = false

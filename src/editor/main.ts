@@ -11,7 +11,7 @@ import { TestMode } from './TestMode'
 const state = new EditorState()
 const undo = new UndoManager(state)
 const io = new ImportExport(state)
-const testMode = new TestMode(state, io)
+const testMode = new TestMode(state)
 
 // DOM refs
 const toolbarEl = document.getElementById('toolbar')!

@@ -4,7 +4,6 @@ import { NPC } from '@/entities/NPC'
 import { GridMovementSystem } from '@/systems/GridMovementSystem'
 import { InteractionSystem } from '@/systems/InteractionSystem'
 import { NpcBehaviorSystem } from '@/systems/NpcBehaviorSystem'
-import { FloorManager } from '@/systems/FloorManager'
 import { SaveManager } from '@/systems/SaveManager'
 import { getFloorById } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
@@ -18,7 +17,6 @@ export class GameScene extends Phaser.Scene {
   private gridMovement!: GridMovementSystem
   private interaction!: InteractionSystem
   private behaviorSystem!: NpcBehaviorSystem
-  floorManager!: FloorManager
   private wallLayer!: Phaser.Tilemaps.TilemapLayer
   private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
@@ -37,7 +35,6 @@ export class GameScene extends Phaser.Scene {
     const floorId = data?.floorId ?? save.getData().currentFloor
     const floor = data?.floorData ?? getFloorById(floorId) ?? getFloorById('floor-01')!
     this.floor = floor
-    this.floorManager = new FloorManager(floor)
 
     // Persist current floor (skip in test mode)
     if (!data?.floorData) save.setCurrentFloor(floor.id)
@@ -195,6 +192,7 @@ export class GameScene extends Phaser.Scene {
     // No target floor yet
     if (stair.targetFloorId === null) {
       this.isTransitioning = true
+      this.gridMovement.freeze()
       this.showToast(i18n.t('stairs_coming_soon'))
       return
     }
@@ -204,6 +202,7 @@ export class GameScene extends Phaser.Scene {
 
     // Transition to target floor
     this.isTransitioning = true
+    this.gridMovement.freeze()
     const targetFloor = getFloorById(stair.targetFloorId)
     const floorNameKey = `${stair.targetFloorId.replace('-', '_')}_name`
     this.scene.launch('TransitionScene', {
@@ -236,6 +235,7 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => {
           toast.destroy()
           this.isTransitioning = false
+          this.gridMovement.unfreeze()
         },
       })
     })

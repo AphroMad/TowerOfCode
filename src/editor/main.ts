@@ -22,7 +22,7 @@ const canvasContainer = document.getElementById('canvas-container')!
 // Build UI
 const canvas = new EditorCanvas(canvasContainer, state, undo)
 new TilePalette(sidebarEl, state)
-new EntityPanel(sidebarEl, state)
+new EntityPanel(sidebarEl, state, undo)
 new Toolbar(toolbarEl, statusEl, state, undo, io, testMode)
 
 // Zoom resize

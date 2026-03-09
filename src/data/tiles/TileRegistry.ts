@@ -14,7 +14,6 @@ const raw = import.meta.glob(
 
 const PREFIX = '/src/assets/tilesets/'
 const tiles: TileDef[] = []
-const byKey = new Map<string, TileDef>()
 
 for (const [path, url] of Object.entries(raw)) {
   // path = "/src/assets/tilesets/ground/basic/1.png"
@@ -30,22 +29,14 @@ for (const [path, url] of Object.entries(raw)) {
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase())
 
-  const def: TileDef = { key: relative, url, category, folder, label }
-  tiles.push(def)
-  byKey.set(relative, def)
+  tiles.push({ key: relative, url, category, folder, label })
 }
 
 // Sort for deterministic ordering
 tiles.sort((a, b) => a.key.localeCompare(b.key))
 
-export const EMPTY_TILE = ''
-
 export function getAllTiles(): readonly TileDef[] {
   return tiles
-}
-
-export function getTile(key: string): TileDef | undefined {
-  return byKey.get(key)
 }
 
 export function getTilesByCategory(category: string): TileDef[] {

@@ -77,6 +77,11 @@ export class ImportExport {
     for (const k of toRemove) localStorage.removeItem(k)
   }
 
+  /** Escape single quotes and backslashes for TS string literals */
+  private esc(s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  }
+
   // ── Export TS (FloorData — single file with everything) ──
 
   exportFloorTs(): string {
@@ -97,7 +102,7 @@ export class ImportExport {
 
     const npcStr = d.npcs.map(n => {
       const fields: string[] = [
-        `      name: '${n.name}'`,
+        `      name: '${this.esc(n.name)}'`,
         `      tileX: ${n.tileX}`,
         `      tileY: ${n.tileY}`,
         `      spriteKey: '${n.spriteKey}'`,
@@ -155,7 +160,7 @@ export class ImportExport {
 
 export const ${varName}: FloorData = {
   id: '${d.floorId}',
-  name: '${d.floorName}',
+  name: '${this.esc(d.floorName)}',
   groundLayer: [
 ${formatLayer(d.groundLayer)}
   ],

@@ -1,4 +1,5 @@
 import type { EditorState, EntityType } from './EditorState'
+import type { UndoManager } from './UndoManager'
 import type { Direction, NPCData, NpcBehavior } from '@/data/types'
 import { getAllFloorIds } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
@@ -6,11 +7,13 @@ import { getAllChallengeIds } from '@/data/challenges'
 
 export class EntityPanel {
   private state: EditorState
+  private undo: UndoManager
   private wrapper: HTMLElement
   private formContainer: HTMLElement
 
-  constructor(container: HTMLElement, state: EditorState) {
+  constructor(container: HTMLElement, state: EditorState, undo: UndoManager) {
     this.state = state
+    this.undo = undo
 
     // Wrapper that hides when not on entities layer
     this.wrapper = document.createElement('div')
@@ -138,6 +141,7 @@ export class EntityPanel {
       }
 
       this.addDeleteButton(() => {
+        this.undo.save()
         d.npcs.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })
@@ -155,6 +159,7 @@ export class EntityPanel {
       })
 
       this.addDeleteButton(() => {
+        this.undo.save()
         d.stairs.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })

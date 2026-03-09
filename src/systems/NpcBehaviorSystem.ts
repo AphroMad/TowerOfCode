@@ -31,6 +31,7 @@ export class NpcBehaviorSystem {
   private states: NpcState[] = []
   private mapWidth: number
   private mapHeight: number
+  private pendingResumeHandlers: Array<() => void> = []
 
   constructor(
     scene: Phaser.Scene,
@@ -57,6 +58,14 @@ export class NpcBehaviorSystem {
         patrolForward: true,
       })
     }
+
+    // Clean up any pending resume handlers on scene shutdown
+    scene.events.on('shutdown', () => {
+      for (const handler of this.pendingResumeHandlers) {
+        this.scene.events.off('resume', handler)
+      }
+      this.pendingResumeHandlers = []
+    })
   }
 
   update(delta: number): void {
@@ -158,7 +167,10 @@ export class NpcBehaviorSystem {
       state.detecting = false
       state.hasDetected = true
       this.scene.events.off('resume', onResume)
+      const idx = this.pendingResumeHandlers.indexOf(onResume)
+      if (idx >= 0) this.pendingResumeHandlers.splice(idx, 1)
     }
+    this.pendingResumeHandlers.push(onResume)
     this.scene.events.on('resume', onResume)
   }
 

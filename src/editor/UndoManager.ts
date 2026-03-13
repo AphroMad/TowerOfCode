@@ -1,13 +1,17 @@
 import type { EditorState } from './EditorState'
-import type { NPCData, StairData } from '@/data/types'
+import type { NPCData, StairData, TeleportData } from '@/data/types'
 
 interface Snapshot {
+  mapWidth: number
+  mapHeight: number
   groundLayer: string[]
   wallsLayer: string[]
+  wallsCollision: boolean[]
   effectsLayer: number[]
   playerSpawn: { tileX: number; tileY: number; facing: string } | null
   npcs: NPCData[]
   stairs: StairData[]
+  teleports: TeleportData[]
 }
 
 const MAX_HISTORY = 50
@@ -25,8 +29,11 @@ export class UndoManager {
   private snapshot(): Snapshot {
     const d = this.state.snapshot
     return {
+      mapWidth: d.mapWidth,
+      mapHeight: d.mapHeight,
       groundLayer: [...d.groundLayer],
       wallsLayer: [...d.wallsLayer],
+      wallsCollision: [...d.wallsCollision],
       effectsLayer: [...d.effectsLayer],
       playerSpawn: d.playerSpawn ? { ...d.playerSpawn } : null,
       npcs: d.npcs.map(n => ({
@@ -35,6 +42,7 @@ export class UndoManager {
         patrolPath: n.patrolPath ? n.patrolPath.map(p => ({ ...p })) : undefined,
       })),
       stairs: d.stairs.map(s => ({ ...s })),
+      teleports: d.teleports.map(t => ({ ...t })),
     }
   }
 
@@ -64,8 +72,11 @@ export class UndoManager {
 
   private restore(snap: Snapshot): void {
     this.state.mutateQuiet(d => {
+      d.mapWidth = snap.mapWidth
+      d.mapHeight = snap.mapHeight
       d.groundLayer = [...snap.groundLayer]
       d.wallsLayer = [...snap.wallsLayer]
+      d.wallsCollision = [...snap.wallsCollision]
       d.effectsLayer = [...snap.effectsLayer]
       d.playerSpawn = snap.playerSpawn ? { ...snap.playerSpawn } as typeof d.playerSpawn : null
       d.npcs = snap.npcs.map(n => ({
@@ -74,6 +85,7 @@ export class UndoManager {
         patrolPath: n.patrolPath ? n.patrolPath.map(p => ({ ...p })) : undefined,
       }))
       d.stairs = snap.stairs.map(s => ({ ...s }))
+      d.teleports = snap.teleports.map(t => ({ ...t }))
     })
     this.state.deselectEntity() // emits
   }

@@ -456,12 +456,15 @@ export class TilePalette {
     const isActive = d.activeTool === 'brush' || d.activeTool === 'eraser'
 
     for (const { canvas, tileKey } of this.groundCells) {
+      // Empty cell only highlights when eraser is active (not when key happens to be '')
       const selected = isActive && d.activeLayer === 'ground' && d.selectedTileKey === tileKey
+        && (tileKey !== '' || d.activeTool === 'eraser')
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
 
     for (const { canvas, tileKey } of this.objectCells) {
       const selected = isActive && d.activeLayer === 'walls' && d.selectedTileKey === tileKey
+        && (tileKey !== '' || d.activeTool === 'eraser')
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
 

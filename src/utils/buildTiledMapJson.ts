@@ -1,11 +1,15 @@
-const MAP_W = 20
-const MAP_H = 15
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
 
 /**
  * Build a Tiled-compatible JSON object from string tile-key layers.
  * Used by GameScene and TestMode to inject tilemaps into Phaser's cache at runtime.
  */
-export function buildTiledMapJson(groundLayer: readonly string[], wallsLayer: readonly string[]): object {
+export function buildTiledMapJson(
+  groundLayer: readonly string[],
+  wallsLayer: readonly string[],
+  width: number = MAP_WIDTH_TILES,
+  height: number = MAP_HEIGHT_TILES,
+): object {
   // Collect all unique tile keys across both layers
   const usedKeys = new Set<string>()
   for (const key of groundLayer) if (key !== '') usedKeys.add(key)
@@ -42,8 +46,8 @@ export function buildTiledMapJson(groundLayer: readonly string[], wallsLayer: re
 
   return {
     compressionlevel: -1,
-    height: MAP_H,
-    width: MAP_W,
+    height: height,
+    width: width,
     infinite: false,
     orientation: 'orthogonal',
     renderorder: 'right-down',
@@ -57,8 +61,8 @@ export function buildTiledMapJson(groundLayer: readonly string[], wallsLayer: re
     layers: [
       {
         data: toGidLayer(groundLayer),
-        height: MAP_H,
-        width: MAP_W,
+        height: height,
+        width: width,
         id: 1,
         name: 'Ground',
         opacity: 1,
@@ -69,8 +73,8 @@ export function buildTiledMapJson(groundLayer: readonly string[], wallsLayer: re
       },
       {
         data: toGidLayer(wallsLayer),
-        height: MAP_H,
-        width: MAP_W,
+        height: height,
+        width: width,
         id: 2,
         name: 'Walls',
         opacity: 1,

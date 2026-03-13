@@ -24,7 +24,7 @@ export class ClExplanationChallenge extends ChallengeBase<ClExplanationConfig> {
 
     const btn = document.createElement('button')
     btn.className = 'cl-btn-primary'
-    btn.textContent = 'Continue'
+    btn.textContent = this.t('challenge_btn_continue')
     btn.addEventListener('click', () => this.onComplete(true))
     hintBar.appendChild(btn)
 
@@ -32,7 +32,7 @@ export class ClExplanationChallenge extends ChallengeBase<ClExplanationConfig> {
     hint.style.marginLeft = '12px'
     hint.style.color = '#999'
     hint.style.fontSize = '12px'
-    hint.textContent = 'or press ESC'
+    hint.textContent = this.t('challenge_hint_or_esc')
     hintBar.appendChild(hint)
 
     this.bindEscapeOnly(() => this.onComplete(true))

@@ -132,7 +132,7 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
     // Hint bar
     this.hintBar = document.createElement('div')
     this.hintBar.className = 'cl-hint-bar'
-    this.hintBar.textContent = 'Click a term, then click a match. Keyboard: [ARROWS] + [ENTER]  [ESC] close'
+    this.hintBar.textContent = this.t('challenge_hint_matching')
     panel.appendChild(this.hintBar)
 
     // Keyboard navigation
@@ -281,9 +281,9 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
         this.answered = true
         const success = document.createElement('div')
         success.className = 'cl-success'
-        success.textContent = 'All matched correctly!'
+        success.textContent = this.t('challenge_feedback_all_matched')
         this.feedbackArea.appendChild(success)
-        this.hintBar.textContent = '[ESC] to close'
+        this.hintBar.textContent = this.t('challenge_hint_esc_close')
       } else {
         // Clear selection — user picks fresh
         this.selectedTerm = -1

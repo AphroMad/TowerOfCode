@@ -1,6 +1,7 @@
 import type { ChallengeConfig } from '@/data/types'
 import type { IChallenge } from '@/challenges/IChallenge'
 import { ClDomRenderer } from '@/challenges/cl-utils/ClDomRenderer'
+import { I18nManager } from '@/i18n/I18nManager'
 
 export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
   implements IChallenge
@@ -9,6 +10,8 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
   protected onComplete!: (success: boolean) => void
   private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
   private pendingTimers: ReturnType<typeof setTimeout>[] = []
+  private attempts = 0
+  private attemptEl: HTMLSpanElement | null = null
 
   create(
     _scene: Phaser.Scene,
@@ -16,7 +19,15 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
     onComplete: (success: boolean) => void,
   ): void {
     this.onComplete = onComplete
+    this.attempts = 0
     const panel = this.renderer.createOverlay(_scene)
+
+    // Attempt counter (hidden until first wrong attempt)
+    this.attemptEl = document.createElement('span')
+    this.attemptEl.className = 'cl-attempt-counter'
+    this.attemptEl.style.display = 'none'
+    panel.appendChild(this.attemptEl)
+
     this.onCreate(_scene, config as C, panel)
   }
 
@@ -36,6 +47,20 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
   ): void
 
   protected onDestroy(): void {}
+
+  /** Shorthand for I18nManager.t() */
+  protected t(key: string): string {
+    return I18nManager.getInstance().t(key)
+  }
+
+  /** Increment and display the attempt counter */
+  protected addAttempt(): void {
+    this.attempts++
+    if (this.attemptEl) {
+      this.attemptEl.style.display = ''
+      this.attemptEl.textContent = `${this.t('challenge_attempt')} ${this.attempts}`
+    }
+  }
 
   protected addTimer(callback: () => void, ms: number): ReturnType<typeof setTimeout> {
     const handle = setTimeout(callback, ms)

@@ -8,8 +8,10 @@ import { SaveManager } from '@/systems/SaveManager'
 import { getFloorById } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
 import type { ChallengeConfig, Direction, FloorData } from '@/data/types'
 import { buildTiledMapJson } from '@/utils/buildTiledMapJson'
+import { tileToPixel } from '@/utils/helpers'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
@@ -22,6 +24,7 @@ export class GameScene extends Phaser.Scene {
   private escKey?: Phaser.Input.Keyboard.Key
   private floor!: FloorData
   private isTransitioning = false
+  private lastTeleportId: string | null = null // prevent re-trigger until player steps off
 
   constructor() {
     super({ key: 'GameScene' })
@@ -29,6 +32,7 @@ export class GameScene extends Phaser.Scene {
 
   create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; fromFloorId?: string; floorData?: FloorData }): void {
     this.isTransitioning = false
+    this.lastTeleportId = null
 
     // Resolve floor: from direct data (test mode), then registry, then save, fallback
     const save = SaveManager.getInstance()
@@ -40,7 +44,9 @@ export class GameScene extends Phaser.Scene {
     if (!data?.floorData) save.setCurrentFloor(floor.id)
 
     // Build Tiled JSON from floor tile data and inject into cache
-    const mapJson = buildTiledMapJson(floor.groundLayer, floor.wallsLayer)
+    const mapW = floor.width ?? MAP_WIDTH_TILES
+    const mapH = floor.height ?? MAP_HEIGHT_TILES
+    const mapJson = buildTiledMapJson(floor.groundLayer, floor.wallsLayer, mapW, mapH)
     this.cache.tilemap.add(floor.id, {
       data: mapJson,
       format: Phaser.Tilemaps.Formats.TILED_JSON,
@@ -72,6 +78,17 @@ export class GameScene extends Phaser.Scene {
       this.gridMovement.setTileEffects(floor.tileEffects)
     }
 
+    // Non-collision wall tiles (passable overrides)
+    if (floor.wallsCollision) {
+      const passableWalls = new Set<string>()
+      for (let i = 0; i < floor.wallsLayer.length; i++) {
+        if (floor.wallsLayer[i] !== '' && !floor.wallsCollision[i]) {
+          passableWalls.add(`${i % mapW},${Math.floor(i / mapW)}`)
+        }
+      }
+      if (passableWalls.size > 0) this.gridMovement.setPassableWalls(passableWalls)
+    }
+
     // NPCs
     this.npcs = floor.npcs.map(npcData => {
       const npc = new NPC(this, npcData)
@@ -85,17 +102,23 @@ export class GameScene extends Phaser.Scene {
     // Interaction system
     this.interaction = new InteractionSystem(this, this.npcs, this.gridMovement, this.player)
 
+    // Hide gatekeepers if floor is already complete
+    this.updateGatekeepers()
+
     // NPC interaction handler
     this.events.on('npc-interact', (npc: NPC) => {
+      // Prevent re-detection after dialog (both auto-detect and manual space press)
+      this.behaviorSystem.markDetected(npc)
       this.handleNPCInteraction(npc)
     })
 
-    // On resume (after dialog/challenge): flush stale keyboard state and
-    // briefly block interactions so the SPACE that closed dialog can't re-trigger
+    // On resume (after dialog/challenge): flush stale keyboard state,
+    // briefly block interactions, and re-check gatekeepers
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys()
       this.interaction.setEnabled(false)
       this.time.delayedCall(300, () => this.interaction.setEnabled(true))
+      this.updateGatekeepers()
     })
 
     // Camera
@@ -182,6 +205,39 @@ export class GameScene extends Phaser.Scene {
 
   private checkStairTrigger(): void {
     const playerTile = this.gridMovement.getPlayerTile()
+
+    // Intra-map teleport (senders only)
+    const teleport = this.floor.teleports?.find(
+      t => t.role === 'sender' && t.tileX === playerTile.x && t.tileY === playerTile.y
+    )
+    if (teleport) {
+      // Step-off guard: don't re-trigger if player just landed here from another teleport
+      if (this.lastTeleportId === teleport.id) return
+
+      const target = teleport.targetId
+        ? this.floor.teleports?.find(t => t.id === teleport.targetId)
+        : undefined
+      if (target) {
+        this.isTransitioning = true
+        this.gridMovement.freeze()
+        this.player.sprite.x = tileToPixel(target.tileX)
+        this.player.sprite.y = tileToPixel(target.tileY)
+        this.lastTeleportId = target.id // mark landing tile
+        this.isTransitioning = false
+        this.gridMovement.unfreeze()
+      }
+      return
+    }
+
+    // Clear step-off guard when player leaves any teleport tile
+    if (this.lastTeleportId) {
+      const stillOnTeleport = this.floor.teleports?.some(
+        t => t.tileX === playerTile.x && t.tileY === playerTile.y
+      )
+      if (!stillOnTeleport) this.lastTeleportId = null
+    }
+
+    // Floor warp
     const stair = this.floor.stairs.find(
       s => s.tileX === playerTile.x && s.tileY === playerTile.y
     )
@@ -241,12 +297,33 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  private handleNPCInteraction(npc: NPC): void {
-    const dialogKey = npc.data.dialogKey
-    let challengeConfig: ChallengeConfig | undefined
+  private updateGatekeepers(): void {
+    const save = SaveManager.getInstance()
+    const allDone = this.floor.requiredChallenges.length > 0
+      && this.floor.requiredChallenges.every(id => save.isChallengeCompleted(id))
 
+    for (const npc of this.npcs) {
+      if (npc.data.behavior !== 'gatekeeper') continue
+      if (allDone && npc.sprite.visible) {
+        npc.sprite.setVisible(false)
+        this.gridMovement.unblockTile(npc.data.tileX, npc.data.tileY)
+      }
+    }
+  }
+
+  private handleNPCInteraction(npc: NPC): void {
+    // Gatekeepers use a fixed dialog key
+    const dialogKey = npc.data.behavior === 'gatekeeper'
+      ? 'gatekeeper_blocked'
+      : npc.data.dialogKey
+
+    // Always resolve challenge config; flag if already completed
+    let challengeConfig: ChallengeConfig | undefined
+    let challengeCompleted = false
+    const save = SaveManager.getInstance()
     if (npc.data.challengeId) {
       challengeConfig = getChallenge(npc.data.challengeId)
+      challengeCompleted = save.isChallengeCompleted(npc.data.challengeId)
     }
 
     this.scene.pause()
@@ -254,6 +331,7 @@ export class GameScene extends Phaser.Scene {
       dialogKey,
       npcName: npc.data.name,
       challengeConfig,
+      challengeCompleted,
     })
   }
 }

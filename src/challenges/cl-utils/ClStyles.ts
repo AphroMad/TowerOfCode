@@ -331,6 +331,14 @@ export function injectClStyles(): void {
       background: #447744;
     }
 
+    .cl-attempt-counter {
+      display: block;
+      text-align: right;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
     .cl-success {
       color: #22aa22;
       font-weight: bold;

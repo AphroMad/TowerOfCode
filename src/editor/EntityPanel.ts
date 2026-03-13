@@ -1,14 +1,16 @@
-import type { EditorState, EntityType } from './EditorState'
+import { type EditorState, type EntityType } from './EditorState'
 import type { UndoManager } from './UndoManager'
-import type { Direction, NPCData, NpcBehavior } from '@/data/types'
+import type { Direction, NPCData, NpcBehavior, TeleportRole } from '@/data/types'
 import { getAllFloorIds } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getAllChallengeIds } from '@/data/challenges'
+import { getSpriteKeys } from '@/data/sprites/SpriteRegistry'
 
 export class EntityPanel {
   private state: EditorState
   private undo: UndoManager
   private wrapper: HTMLElement
+  private btnRow: HTMLElement
   private formContainer: HTMLElement
 
   constructor(container: HTMLElement, state: EditorState, undo: UndoManager) {
@@ -18,7 +20,8 @@ export class EntityPanel {
     // Wrapper that hides when not on entities layer
     this.wrapper = document.createElement('div')
 
-    const btnRow = document.createElement('div')
+    this.btnRow = document.createElement('div')
+    const btnRow = this.btnRow
     btnRow.style.display = 'flex'
     btnRow.style.gap = '4px'
     btnRow.style.marginBottom = '12px'
@@ -41,6 +44,7 @@ export class EntityPanel {
     addBtn('+ Spawn', 'player')
     addBtn('+ NPC', 'npc')
     addBtn('+ Warp', 'stair')
+    addBtn('+ Teleport', 'teleport')
     this.wrapper.appendChild(btnRow)
 
     // Properties form
@@ -56,12 +60,68 @@ export class EntityPanel {
   }
 
   private updateVisibility(): void {
-    this.wrapper.style.display = this.state.snapshot.activeLayer === 'entities' ? '' : 'none'
+    const layer = this.state.snapshot.activeLayer
+    this.wrapper.style.display = (layer === 'entities' || layer === 'walls') ? '' : 'none'
+    this.btnRow.style.display = layer === 'entities' ? 'flex' : 'none'
   }
 
   private renderForm(): void {
     const d = this.state.snapshot
     this.formContainer.innerHTML = ''
+
+    // Wall tile properties panel
+    if (d.activeLayer === 'walls') {
+      if (d.selectedWallTile) {
+        const { x, y } = d.selectedWallTile
+        const idx = y * d.mapWidth + x
+        const tileKey = d.wallsLayer[idx]
+        if (tileKey === '') {
+          this.state.mutateQuiet(md => { md.selectedWallTile = null })
+          return
+        }
+        const title = document.createElement('div')
+        title.className = 'panel-title'
+        title.style.marginTop = '4px'
+        title.textContent = 'Object Tile'
+        this.formContainer.appendChild(title)
+
+        this.addInfo(`Position: (${x}, ${y})`)
+        this.addInfo(`Tile: ${tileKey}`)
+
+        const collision = d.wallsCollision[idx]
+        this.addSelect('Collision', ['true', 'false'], String(collision), (v) => {
+          this.undo.save()
+          this.state.mutateQuiet(md => { md.wallsCollision[idx] = v === 'true' })
+          this.state.emit()
+          this.undo.save()
+        })
+
+        this.addDeleteButton(() => {
+          this.undo.save()
+          this.state.mutateQuiet(md => {
+            md.wallsLayer[idx] = ''
+            md.wallsCollision[idx] = true
+            md.selectedWallTile = null
+          })
+          this.state.emit()
+          this.undo.save()
+        })
+
+        // Extra spacing below the panel so it doesn't crowd tools
+        const spacer = document.createElement('div')
+        spacer.style.height = '16px'
+        this.formContainer.appendChild(spacer)
+      } else {
+        const hint = document.createElement('div')
+        hint.style.color = '#888'
+        hint.style.fontSize = '12px'
+        hint.style.padding = '8px 0'
+        hint.textContent = 'Click an object tile to see properties\nRight-click to toggle collision'
+        hint.style.whiteSpace = 'pre-line'
+        this.formContainer.appendChild(hint)
+      }
+      return
+    }
 
     if (!d.selectedEntityType || d.selectedEntityIndex < 0) {
       if (d.placingEntity) {
@@ -97,8 +157,18 @@ export class EntityPanel {
 
       this.addInfo(`Position: (${npc.tileX}, ${npc.tileY})`)
 
-      // Name
-      this.addInput('Name', npc.name, (v) => { npc.name = v; this.state.emit() })
+      // Name (must be unique per floor — animation keys depend on it)
+      this.addInput('Name', npc.name, (v) => {
+        const trimmed = v.trim()
+        if (!trimmed) return
+        const duplicate = d.npcs.some((n, i) => i !== d.selectedEntityIndex && n.name === trimmed)
+        if (duplicate) {
+          alert(`An NPC named "${trimmed}" already exists on this floor. Names must be unique.`)
+          return
+        }
+        npc.name = trimmed
+        this.state.emit()
+      })
 
       // Dialog key dropdown
       const dialogKeys = ['(none)', ...I18nManager.getInstance().getDialogKeys()]
@@ -115,11 +185,11 @@ export class EntityPanel {
       })
 
       // Visual properties
-      this.addSelect('Sprite', ['npc', 'player'], npc.spriteKey, (v) => { npc.spriteKey = v; this.state.emit() })
+      this.addSelect('Sprite', getSpriteKeys(), npc.spriteKey, (v) => { npc.spriteKey = v; this.state.emit() })
       this.addSelect('Facing', ['down', 'up', 'left', 'right'], npc.facing, (v) => { npc.facing = v as Direction; this.state.emit() })
 
       // Behavior
-      const behaviors: NpcBehavior[] = ['static', 'detect', 'lookout', 'patrol']
+      const behaviors: NpcBehavior[] = ['static', 'detect', 'lookout', 'patrol', 'gatekeeper']
       this.addSelect('Behavior', behaviors, npc.behavior, (v) => {
         npc.behavior = v as NpcBehavior
         // Init defaults for new behavior
@@ -152,6 +222,7 @@ export class EntityPanel {
       this.formContainer.appendChild(title)
 
       this.addInfo(`Position: (${stair.tileX}, ${stair.tileY})`)
+
       const floorOptions = ['(none)', ...getAllFloorIds()]
       this.addSelect('Target Floor', floorOptions, stair.targetFloorId ?? '(none)', (v) => {
         stair.targetFloorId = v === '(none)' ? null : v
@@ -161,6 +232,63 @@ export class EntityPanel {
       this.addDeleteButton(() => {
         this.undo.save()
         d.stairs.splice(d.selectedEntityIndex, 1)
+        this.state.deselectEntity()
+      })
+    } else if (d.selectedEntityType === 'teleport') {
+      const tp = d.teleports[d.selectedEntityIndex]
+      if (!tp) return
+      title.textContent = `Teleport: ${tp.id}`
+      this.formContainer.appendChild(title)
+
+      this.addInfo(`Position: (${tp.tileX}, ${tp.tileY})`)
+
+      // ID (must be unique)
+      this.addInput('ID', tp.id, (v) => {
+        const trimmed = v.trim()
+        if (!trimmed) return
+        const duplicate = d.teleports.some((t, i) => i !== d.selectedEntityIndex && t.id === trimmed)
+        if (duplicate) {
+          alert(`A teleport with ID "${trimmed}" already exists. IDs must be unique.`)
+          return
+        }
+        // Update any senders targeting this teleport
+        const oldId = tp.id
+        for (const other of d.teleports) {
+          if (other.targetId === oldId) other.targetId = trimmed
+        }
+        tp.id = trimmed
+        this.state.emit()
+      })
+
+      // Role toggle
+      const roles: TeleportRole[] = ['sender', 'receiver']
+      this.addSelect('Role', roles, tp.role, (v) => {
+        this.undo.save()
+        tp.role = v as TeleportRole
+        if (v === 'receiver') {
+          tp.targetId = undefined
+        }
+        this.state.emit()
+        this.undo.save()
+      })
+
+      // Target dropdown (only for senders)
+      if (tp.role === 'sender') {
+        const otherTeleports = d.teleports
+          .filter((_, i) => i !== d.selectedEntityIndex)
+          .map(t => t.id)
+        const targetOptions = ['(none)', ...otherTeleports]
+        this.addSelect('Target', targetOptions, tp.targetId ?? '(none)', (v) => {
+          this.undo.save()
+          tp.targetId = v === '(none)' ? undefined : v
+          this.state.emit()
+          this.undo.save()
+        })
+      }
+
+      this.addDeleteButton(() => {
+        this.undo.save()
+        d.teleports.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })
     }

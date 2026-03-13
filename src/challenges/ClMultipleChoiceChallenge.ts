@@ -6,9 +6,11 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
   private config!: ClMultipleChoiceConfig
   private selectedIndex = 0
   private answered = false
+  private wrongShown = false
   private optionBtns: HTMLButtonElement[] = []
   private feedbackArea!: HTMLDivElement
   private hintBar!: HTMLDivElement
+  private optionsDiv!: HTMLDivElement
 
   protected onCreate(
     _scene: Phaser.Scene,
@@ -28,32 +30,15 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     // Question content blocks
     this.renderer.renderContentBlocks(panel, this.config.content.question)
 
-    // Options
-    const optionsDiv = document.createElement('div')
-    optionsDiv.style.display = 'flex'
-    optionsDiv.style.flexDirection = 'column'
-    optionsDiv.style.gap = '6px'
-    optionsDiv.style.margin = '14px 0'
-    panel.appendChild(optionsDiv)
+    // Options container
+    this.optionsDiv = document.createElement('div')
+    this.optionsDiv.style.display = 'flex'
+    this.optionsDiv.style.flexDirection = 'column'
+    this.optionsDiv.style.gap = '6px'
+    this.optionsDiv.style.margin = '14px 0'
+    panel.appendChild(this.optionsDiv)
 
-    this.optionBtns = []
-    const options = this.config.content.exercise.options
-    for (let i = 0; i < options.length; i++) {
-      const btn = document.createElement('button')
-      btn.className = 'cl-btn'
-      btn.textContent = resolveText(options[i].value)
-      btn.style.textAlign = 'left'
-      btn.addEventListener('click', () => {
-        if (this.answered) return
-        this.selectedIndex = i
-        this.highlightSelected()
-        this.submitAnswer()
-      })
-      optionsDiv.appendChild(btn)
-      this.optionBtns.push(btn)
-    }
-
-    this.highlightSelected()
+    this.renderOptions()
 
     // Feedback area
     this.feedbackArea = document.createElement('div')
@@ -62,24 +47,54 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     // Hint bar
     this.hintBar = document.createElement('div')
     this.hintBar.className = 'cl-hint-bar'
-    this.hintBar.textContent = '[UP/DOWN] select  [ENTER] submit  [ESC] close'
+    this.hintBar.textContent = this.t('challenge_hint_mcq')
     panel.appendChild(this.hintBar)
 
-    // Keyboard navigation
+    this.setupKeyboard()
+  }
+
+  private renderOptions(): void {
+    this.optionsDiv.innerHTML = ''
+    this.optionBtns = []
+    const options = this.config.content.exercise.options
+
+    for (let i = 0; i < options.length; i++) {
+      const btn = document.createElement('button')
+      btn.className = 'cl-btn'
+      btn.textContent = resolveText(options[i].value)
+      btn.style.textAlign = 'left'
+      btn.addEventListener('click', () => {
+        if (this.answered) return
+        // If showing wrong-answer feedback, clear it and let user pick again
+        if (this.wrongShown) this.clearWrongState()
+        this.selectedIndex = i
+        this.highlightSelected()
+        this.submitAnswer()
+      })
+      this.optionsDiv.appendChild(btn)
+      this.optionBtns.push(btn)
+    }
+    this.highlightSelected()
+  }
+
+  private setupKeyboard(): void {
     this.bindKeys({
       isAnswered: () => this.answered,
       onEscape: () => this.onComplete(this.answered),
       onKey: (e) => {
         if (e.code === 'ArrowUp') {
           e.preventDefault()
+          if (this.wrongShown) this.clearWrongState()
           this.selectedIndex = Math.max(0, this.selectedIndex - 1)
           this.highlightSelected()
         } else if (e.code === 'ArrowDown') {
           e.preventDefault()
-          this.selectedIndex = Math.min(options.length - 1, this.selectedIndex + 1)
+          if (this.wrongShown) this.clearWrongState()
+          this.selectedIndex = Math.min(this.optionBtns.length - 1, this.selectedIndex + 1)
           this.highlightSelected()
         } else if (e.code === 'Enter') {
           e.preventDefault()
+          if (this.wrongShown) this.clearWrongState()
           this.submitAnswer()
         }
       },
@@ -92,30 +107,41 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     }
   }
 
+  private clearWrongState(): void {
+    this.wrongShown = false
+    this.feedbackArea.innerHTML = ''
+    for (const btn of this.optionBtns) {
+      btn.classList.remove('incorrect', 'dimmed', 'selected')
+    }
+    this.hintBar.textContent = this.t('challenge_hint_mcq')
+  }
+
   private submitAnswer(): void {
     if (this.answered) return
-    this.answered = true
+    this.addAttempt()
 
     const correctIdx = this.config.content.exercise.correctAnswer
+    const correct = this.selectedIndex === correctIdx
 
+    // Show which was picked (and correct if right)
     for (let i = 0; i < this.optionBtns.length; i++) {
       this.optionBtns[i].classList.remove('selected')
-      if (i === correctIdx) {
+      if (correct && i === correctIdx) {
         this.optionBtns[i].classList.add('correct')
-      } else if (i === this.selectedIndex) {
+      } else if (i === this.selectedIndex && !correct) {
         this.optionBtns[i].classList.add('incorrect')
       } else {
         this.optionBtns[i].classList.add('dimmed')
       }
     }
 
-    // Show hint
+    // Show feedback
+    this.feedbackArea.innerHTML = ''
     const hintText = resolveText(this.config.content.hint)
-    const correct = this.selectedIndex === correctIdx
 
     const feedback = document.createElement('div')
     feedback.className = correct ? 'cl-success' : 'cl-failure'
-    feedback.textContent = correct ? 'Correct!' : 'Incorrect'
+    feedback.textContent = correct ? this.t('challenge_feedback_correct') : this.t('challenge_feedback_incorrect')
     this.feedbackArea.appendChild(feedback)
 
     if (hintText) {
@@ -128,6 +154,13 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
       this.feedbackArea.appendChild(hintDiv)
     }
 
-    this.hintBar.textContent = '[ESC] to close'
+    if (correct) {
+      this.answered = true
+      this.hintBar.textContent = this.t('challenge_hint_esc_close')
+    } else {
+      // Red stays until user clicks another option or navigates with keyboard
+      this.wrongShown = true
+      this.hintBar.textContent = this.t('challenge_hint_enter_retry')
+    }
   }
 }

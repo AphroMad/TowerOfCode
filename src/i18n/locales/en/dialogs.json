@@ -3,5 +3,9 @@
     "Hey there! I'm also a student here.",
     "Tip: Variables can store different types of data - numbers, text, and more!",
     "Good luck with the Professor's challenge!"
+  ],
+  "gatekeeper_blocked": [
+    "You shall not pass!",
+    "Complete all the challenges on this floor before moving on."
   ]
 }

@@ -12,6 +12,7 @@ export class GridMovementSystem {
   private isFrozen = false
   private wallLayer: Phaser.Tilemaps.TilemapLayer
   private blockedTiles: Set<string>
+  private passableWalls: Set<string> = new Set()
   private tileEffects: Map<string, TileEffectData> = new Map()
   private lastDirection: Direction = 'down'
   private isSliding = false
@@ -34,6 +35,10 @@ export class GridMovementSystem {
 
   unblockTile(tileX: number, tileY: number): void {
     this.blockedTiles.delete(`${tileX},${tileY}`)
+  }
+
+  setPassableWalls(tiles: Set<string>): void {
+    this.passableWalls = tiles
   }
 
   setTileEffects(effects: TileEffectData[]): void {
@@ -83,11 +88,12 @@ export class GridMovementSystem {
     return this.wallLayer.layer.height
   }
 
-  /** Check if a tile has a wall (non-empty tile on wall layer) */
+  /** Check if a tile has a wall (non-empty tile on wall layer, respects passable overrides) */
   isWallAt(tileX: number, tileY: number): boolean {
     const mapWidth = this.wallLayer.layer.width
     const mapHeight = this.wallLayer.layer.height
     if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return true
+    if (this.passableWalls.has(`${tileX},${tileY}`)) return false
     const tile = this.wallLayer.getTileAt(tileX, tileY)
     return tile !== null
   }
@@ -183,6 +189,8 @@ export class GridMovementSystem {
     const mapWidth = this.wallLayer.layer.width
     const mapHeight = this.wallLayer.layer.height
     if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return true
+    // Passable wall overrides
+    if (this.passableWalls.has(`${tileX},${tileY}`)) return false
     // Block on non-empty wall tiles
     const tile = this.wallLayer.getTileAt(tileX, tileY)
     return tile !== null

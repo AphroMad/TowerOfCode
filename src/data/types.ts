@@ -5,7 +5,7 @@ export interface LocalizedText {
 
 export type Direction = 'down' | 'up' | 'left' | 'right'
 
-export type NpcBehavior = 'static' | 'detect' | 'lookout' | 'patrol'
+export type NpcBehavior = 'static' | 'detect' | 'lookout' | 'patrol' | 'gatekeeper'
 
 export interface NPCData {
   name: string
@@ -45,7 +45,7 @@ interface ClBase {
 }
 
 export interface ClExplanationConfig extends ClBase {
-  type: 'cl-explanation'
+  type: 'explanation'
   content: {
     question: ClContentBlock[]
   }
@@ -58,7 +58,7 @@ export interface ClMultipleChoiceOption {
 }
 
 export interface ClMultipleChoiceConfig extends ClBase {
-  type: 'cl-multiple-choice'
+  type: 'multiple_choice'
   content: {
     question: ClContentBlock[]
     exercise: {
@@ -70,7 +70,7 @@ export interface ClMultipleChoiceConfig extends ClBase {
 }
 
 export interface ClFillInTextConfig extends ClBase {
-  type: 'cl-fill-in-text'
+  type: 'fill_in_text'
   content: {
     question: ClContentBlock[]
     exercise: {
@@ -91,7 +91,7 @@ export interface ClMatchingPair {
 }
 
 export interface ClMatchingPairsConfig extends ClBase {
-  type: 'cl-matching-pairs'
+  type: 'matching_pairs'
   content: {
     question: ClContentBlock[]
     exercise: {
@@ -101,7 +101,7 @@ export interface ClMatchingPairsConfig extends ClBase {
 }
 
 export interface ClChallengeConfig extends ClBase {
-  type: 'cl-challenge'
+  type: 'challenge'
   content: {
     question: ClContentBlock[]
     exercise: {
@@ -138,17 +138,33 @@ export interface StairData {
   targetFloorId: string | null // null = floor doesn't exist yet
 }
 
+// --- Teleports (intra-map) ---
+
+export type TeleportRole = 'sender' | 'receiver'
+
+export interface TeleportData {
+  id: string
+  tileX: number
+  tileY: number
+  role: TeleportRole
+  targetId?: string // only for senders — id of another teleport to land on
+}
+
 // --- Floor & Save ---
 
 export interface FloorData {
   id: string
   name: string
+  width?: number   // tile columns (default 20)
+  height?: number  // tile rows (default 15)
   groundLayer: string[]
   wallsLayer: string[]
+  wallsCollision?: boolean[]
   playerStart: { tileX: number; tileY: number; facing: Direction }
   npcs: NPCData[]
   requiredChallenges: string[]
   stairs: StairData[]
+  teleports?: TeleportData[]
   tileEffects?: TileEffectData[]
 }
 

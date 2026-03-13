@@ -34,11 +34,11 @@
 <div class="toolbar">
   <input type="file" id="fileInput" accept="image/*">
   <div class="sep"></div>
-  <label>Grid: <select id="gridSize">
-    <option value="8">8</option>
-    <option value="16" selected>16</option>
-    <option value="32">32</option>
-    <option value="64">64</option>
+  <label>Size: <select id="gridSize">
+    <option value="8">8×8</option>
+    <option value="16" selected>16×16</option>
+    <option value="32">32×32</option>
+    <option value="64">64×64</option>
   </select></label>
   <label>Zoom: <select id="zoom">
     <option value="1">1x</option>
@@ -74,10 +74,13 @@ const prevCanvas = $('preview');
 const prevCtx = prevCanvas.getContext('2d');
 const wrap = $('canvasWrap');
 
+const CELL = 8;  // Always 8px grid
+
 let img = null;
-let grid = 16;
+let grid = 16;   // Selection size in pixels
 let zoom = 2;
-let selected = new Set();  // "r,c" strings
+// Selected origins stored as "pixelY,pixelX" (snapped to 8px)
+let selected = new Set();
 let dragStart = null;
 let dragging = false;
 let dragCurrent = null;
@@ -95,7 +98,6 @@ $('fileInput').addEventListener('change', e => {
   if (f) loadImage(URL.createObjectURL(f));
 });
 
-// Drag & drop on the whole page
 document.body.addEventListener('dragover', e => e.preventDefault());
 document.body.addEventListener('drop', e => {
   e.preventDefault();
@@ -103,9 +105,32 @@ document.body.addEventListener('drop', e => {
   if (f && f.type.startsWith('image/')) loadImage(URL.createObjectURL(f));
 });
 
-$('gridSize').addEventListener('change', e => { grid = +e.target.value; selected.clear(); render(); });
+$('gridSize').addEventListener('change', e => { grid = +e.target.value; selected.clear(); render(); updatePreview(); });
 $('zoom').addEventListener('change', e => { zoom = +e.target.value; render(); });
 $('btnClear').addEventListener('click', () => { selected.clear(); render(); updatePreview(); });
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+// Convert mouse event to 8px cell coords, then snap to selection origin
+function evtToOrigin(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const cellZoom = CELL * zoom;
+  // Which 8px cell was clicked
+  const cellC = Math.floor(x / cellZoom);
+  const cellR = Math.floor(y / cellZoom);
+  // Snap to 8px origin (pixel coords in source image)
+  const px = cellC * CELL;
+  const py = cellR * CELL;
+  // Clamp so selection box stays in bounds
+  const maxPx = img.width - grid;
+  const maxPy = img.height - grid;
+  return { px: Math.max(0, Math.min(px, maxPx)), py: Math.max(0, Math.min(py, maxPy)) };
+}
+
+function originKey(px, py) { return `${py},${px}`; }
+function parseKey(k) { const [py, px] = k.split(',').map(Number); return { px, py }; }
 
 // ── Render ──────────────────────────────────────────────────────
 
@@ -117,7 +142,7 @@ function render() {
   canvas.height = h;
 
   // Checkerboard
-  const cs = 8 * zoom;
+  const cs = CELL * zoom;
   for (let y = 0; y < h; y += cs) {
     for (let x = 0; x < w; x += cs) {
       ctx.fillStyle = ((x / cs + y / cs) & 1) ? '#2a2a2a' : '#3a3a3a';
@@ -129,33 +154,34 @@ function render() {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, w, h);
 
-  // Grid
-  const ts = grid * zoom;
+  // 8px grid — always visible
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = 0; x <= w; x += ts) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); }
-  for (let y = 0; y <= h; y += ts) { ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); }
+  for (let x = 0; x <= w; x += cs) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); }
+  for (let y = 0; y <= h; y += cs) { ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); }
   ctx.stroke();
 
   // Selected tiles
+  const gs = grid * zoom;
   ctx.strokeStyle = '#00ff00';
   ctx.lineWidth = 2;
   for (const key of selected) {
-    const [r, c] = key.split(',').map(Number);
-    ctx.strokeRect(c * ts + 1, r * ts + 1, ts - 2, ts - 2);
+    const { px, py } = parseKey(key);
+    ctx.strokeRect(px * zoom + 1, py * zoom + 1, gs - 2, gs - 2);
   }
 
   // Drag preview
   if (dragging && dragStart && dragCurrent) {
-    const r0 = Math.min(dragStart.r, dragCurrent.r);
-    const c0 = Math.min(dragStart.c, dragCurrent.c);
-    const r1 = Math.max(dragStart.r, dragCurrent.r);
-    const c1 = Math.max(dragStart.c, dragCurrent.c);
+    // Highlight the rectangle of 8px cells being dragged over
+    const x0 = Math.min(dragStart.px, dragCurrent.px);
+    const y0 = Math.min(dragStart.py, dragCurrent.py);
+    const x1 = Math.max(dragStart.px, dragCurrent.px) + grid;
+    const y1 = Math.max(dragStart.py, dragCurrent.py) + grid;
     ctx.strokeStyle = '#ffff00';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
-    ctx.strokeRect(c0 * ts, r0 * ts, (c1 - c0 + 1) * ts, (r1 - r0 + 1) * ts);
+    ctx.strokeRect(x0 * zoom, y0 * zoom, (x1 - x0) * zoom, (y1 - y0) * zoom);
     ctx.setLineDash([]);
   }
 
@@ -164,50 +190,41 @@ function render() {
 
 // ── Mouse ───────────────────────────────────────────────────────
 
-function evtToTile(e) {
-  const rect = canvas.getBoundingClientRect();
-  const sx = (e.clientX - rect.left + wrap.scrollLeft) / zoom;
-  const sy = (e.clientY - rect.top + wrap.scrollTop) / zoom;
-  // Actually, since canvas is scaled by zoom, we need raw canvas coords
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const ts = grid * zoom;
-  const c = Math.floor(x / ts);
-  const r = Math.floor(y / ts);
-  const maxC = Math.floor(img.width / grid) - 1;
-  const maxR = Math.floor(img.height / grid) - 1;
-  return { r: Math.max(0, Math.min(r, maxR)), c: Math.max(0, Math.min(c, maxC)) };
-}
-
 canvas.addEventListener('mousedown', e => {
-  if (e.button !== 0) return;
-  dragStart = evtToTile(e);
+  if (e.button !== 0 || !img) return;
+  dragStart = evtToOrigin(e);
   dragging = false;
   dragCurrent = null;
 });
 
 canvas.addEventListener('mousemove', e => {
-  if (!dragStart) return;
+  if (!dragStart || !img) return;
   dragging = true;
-  dragCurrent = evtToTile(e);
+  dragCurrent = evtToOrigin(e);
   render();
 });
 
 canvas.addEventListener('mouseup', e => {
-  if (!dragStart) return;
-  const end = evtToTile(e);
+  if (!dragStart || !img) return;
+  const end = evtToOrigin(e);
 
   if (!dragging) {
-    // Single click — toggle
-    const key = `${dragStart.r},${dragStart.c}`;
+    // Single click — toggle one tile
+    const key = originKey(dragStart.px, dragStart.py);
     if (selected.has(key)) selected.delete(key); else selected.add(key);
   } else {
-    // Drag — select range
-    const r0 = Math.min(dragStart.r, end.r), r1 = Math.max(dragStart.r, end.r);
-    const c0 = Math.min(dragStart.c, end.c), c1 = Math.max(dragStart.c, end.c);
-    for (let r = r0; r <= r1; r++)
-      for (let c = c0; c <= c1; c++)
-        selected.add(`${r},${c}`);
+    // Drag — lay non-overlapping tiles from drag start, stepping by grid size
+    const x0 = Math.min(dragStart.px, end.px);
+    const y0 = Math.min(dragStart.py, end.py);
+    const x1 = Math.max(dragStart.px, end.px);
+    const y1 = Math.max(dragStart.py, end.py);
+    for (let py = y0; py <= y1; py += grid) {
+      for (let px = x0; px <= x1; px += grid) {
+        if (px + grid <= img.width && py + grid <= img.height) {
+          selected.add(originKey(px, py));
+        }
+      }
+    }
   }
 
   dragStart = null;
@@ -221,8 +238,8 @@ canvas.addEventListener('mouseup', e => {
 canvas.addEventListener('contextmenu', e => {
   e.preventDefault();
   if (!img) return;
-  const t = evtToTile(e);
-  selected.delete(`${t.r},${t.c}`);
+  const o = evtToOrigin(e);
+  selected.delete(originKey(o.px, o.py));
   render();
   updatePreview();
 });
@@ -244,44 +261,43 @@ function updatePreview() {
     return;
   }
 
-  const tiles = [...selected].map(k => k.split(',').map(Number));
-  const rows = tiles.map(t => t[0]);
-  const cols = tiles.map(t => t[1]);
-  const minR = Math.min(...rows), maxR = Math.max(...rows);
-  const minC = Math.min(...cols), maxC = Math.max(...cols);
+  const tiles = [...selected].map(parseKey);
 
-  const tw = (maxC - minC + 1) * grid;
-  const th = (maxR - minR + 1) * grid;
-  const scale = Math.max(1, Math.min(6, Math.floor(220 / Math.max(tw, 1))));
+  // Just show each tile side by side
+  const cols = Math.min(tiles.length, 6);
+  const rows = Math.ceil(tiles.length / cols);
+  const scale = Math.max(1, Math.min(6, Math.floor(220 / (cols * grid))));
 
-  prevCanvas.width = tw * scale;
-  prevCanvas.height = th * scale;
+  prevCanvas.width = cols * grid * scale;
+  prevCanvas.height = rows * grid * scale;
   prevCtx.imageSmoothingEnabled = false;
   prevCtx.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
 
-  for (const [r, c] of tiles) {
+  tiles.forEach(({ px, py }, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     prevCtx.drawImage(img,
-      c * grid, r * grid, grid, grid,
-      (c - minC) * grid * scale, (r - minR) * grid * scale, grid * scale, grid * scale
+      px, py, grid, grid,
+      col * grid * scale, row * grid * scale, grid * scale, grid * scale
     );
-  }
+  });
 }
 
 // ── Export ───────────────────────────────────────────────────────
 
 $('btnExport').addEventListener('click', async () => {
   if (!selected.size) return alert('Nothing selected');
-  const tiles = [...selected].map(k => k.split(',').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const tiles = [...selected].map(parseKey).sort((a, b) => a.py - b.py || a.px - b.px);
 
   const zip = new JSZip();
 
   for (let i = 0; i < tiles.length; i++) {
-    const [r, c] = tiles[i];
+    const { px, py } = tiles[i];
     const tmp = document.createElement('canvas');
     tmp.width = grid; tmp.height = grid;
-    tmp.getContext('2d').drawImage(img, c * grid, r * grid, grid, grid, 0, 0, grid, grid);
+    tmp.getContext('2d').drawImage(img, px, py, grid, grid, 0, 0, grid, grid);
     const blob = await new Promise(res => tmp.toBlob(res));
-    zip.file(`tile_${String(i).padStart(4, '0')}_${r}_${c}.png`, blob);
+    zip.file(`tile_${String(i).padStart(4, '0')}_${px}_${py}.png`, blob);
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -293,21 +309,20 @@ $('btnExport').addEventListener('click', async () => {
 
 $('btnExportSheet').addEventListener('click', () => {
   if (!selected.size) return alert('Nothing selected');
-  const tiles = [...selected].map(k => k.split(',').map(Number));
-  const rows = tiles.map(t => t[0]);
-  const cols = tiles.map(t => t[1]);
-  const minR = Math.min(...rows), maxR = Math.max(...rows);
-  const minC = Math.min(...cols), maxC = Math.max(...cols);
+  const tiles = [...selected].map(parseKey).sort((a, b) => a.py - b.py || a.px - b.px);
 
-  const tw = (maxC - minC + 1) * grid;
-  const th = (maxR - minR + 1) * grid;
+  const cols = Math.min(tiles.length, 8);
+  const rows = Math.ceil(tiles.length / cols);
   const tmp = document.createElement('canvas');
-  tmp.width = tw; tmp.height = th;
+  tmp.width = cols * grid;
+  tmp.height = rows * grid;
   const tctx = tmp.getContext('2d');
 
-  for (const [r, c] of tiles) {
-    tctx.drawImage(img, c * grid, r * grid, grid, grid, (c - minC) * grid, (r - minR) * grid, grid, grid);
-  }
+  tiles.forEach(({ px, py }, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    tctx.drawImage(img, px, py, grid, grid, col * grid, row * grid, grid, grid);
+  });
 
   tmp.toBlob(blob => {
     const a = document.createElement('a');

@@ -5,8 +5,11 @@ import { GameScene } from '@/scenes/GameScene'
 import { DialogScene } from '@/scenes/DialogScene'
 import { ChallengeScene } from '@/scenes/ChallengeScene'
 import type { FloorData, Direction, TileEffectData } from '@/data/types'
-import { MAP_W, MAP_H } from './EditorState'
 import { getAllTiles } from '@/data/tiles/TileRegistry'
+import { getAllSprites } from '@/data/sprites/SpriteRegistry'
+import { normalizeTileTextures } from '@/utils/normalizeTileTextures'
+import { normalizeSpriteTextures } from '@/utils/normalizeSpriteTextures'
+import { SaveManager } from '@/systems/SaveManager'
 
 /**
  * Boot scene for editor test mode.
@@ -24,19 +27,16 @@ class EditorBootScene extends Phaser.Scene {
     for (const tile of getAllTiles()) {
       this.load.image(tile.key, tile.url)
     }
-    this.load.spritesheet('player', 'assets/sprites/player.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    })
-    this.load.spritesheet('npc', 'assets/sprites/npc.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    })
+    for (const sprite of getAllSprites()) {
+      this.load.image(sprite.key, sprite.url)
+    }
     this.load.image('stairs_straight', 'assets/tilesets/stairs_straight.png')
     this.load.image('dialog-box', 'assets/ui/dialog-box.png')
   }
 
   create(): void {
+    normalizeTileTextures(this)
+    normalizeSpriteTextures(this)
     const floorData = EditorBootScene.pendingFloorData
     this.scene.start('GameScene', {
       floorId: floorData.id,
@@ -67,7 +67,7 @@ class EditorTransitionScene extends Phaser.Scene {
   }
 
   create(): void {
-    const text = this.add.text(
+    this.add.text(
       CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2,
       'Floor transition not available in test mode.\nPress ESC to return to editor.',
       {
@@ -84,11 +84,6 @@ class EditorTransitionScene extends Phaser.Scene {
     escKey.on('down', () => {
       document.dispatchEvent(new CustomEvent('editor-stop-test'))
     })
-
-    this.time.delayedCall(3000, () => {
-      text.destroy()
-      document.dispatchEvent(new CustomEvent('editor-stop-test'))
-    })
   }
 }
 
@@ -98,6 +93,7 @@ export class TestMode {
   private active = false
   private listeners: (() => void)[] = []
   private stopHandler: () => void
+  private savedChallenges: string[] = []
 
   constructor(state: EditorState) {
     this.state = state
@@ -127,6 +123,11 @@ export class TestMode {
 
     const floorData = this.buildFloorData(spawn)
 
+    // Back up and clear completed challenges so test mode starts fresh
+    const save = SaveManager.getInstance()
+    this.savedChallenges = save.getCompletedChallenges()
+    save.setCompletedChallenges([])
+
     this.setEditorVisible(false)
     this.createTestContainer(floorData)
     document.addEventListener('editor-stop-test', this.stopHandler)
@@ -144,8 +145,11 @@ export class TestMode {
     return {
       id: d.floorId || 'test-floor',
       name: d.floorName || 'Test Floor',
+      width: d.mapWidth,
+      height: d.mapHeight,
       groundLayer: [...d.groundLayer],
       wallsLayer: [...d.wallsLayer],
+      wallsCollision: [...d.wallsCollision],
       playerStart: {
         tileX: spawn.tileX,
         tileY: spawn.tileY,
@@ -157,6 +161,7 @@ export class TestMode {
         .filter((id): id is string => !!id),
       tileEffects: this.buildTileEffects(d.effectsLayer),
       stairs: d.stairs.map(s => ({ ...s })),
+      teleports: d.teleports.map(t => ({ ...t })),
     }
   }
 
@@ -169,9 +174,11 @@ export class TestMode {
       4: { effect: 'redirect', direction: 'left' },
       5: { effect: 'redirect', direction: 'right' },
     }
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        const eid = effectsLayer[y * MAP_W + x]
+    const mW = this.state.snapshot.mapWidth
+    const mH = this.state.snapshot.mapHeight
+    for (let y = 0; y < mH; y++) {
+      for (let x = 0; x < mW; x++) {
+        const eid = effectsLayer[y * mW + x]
         const info = idToEffect[eid]
         if (info) {
           effects.push({ tileX: x, tileY: y, ...info })
@@ -239,6 +246,9 @@ export class TestMode {
 
     const container = document.getElementById('test-game-container')
     if (container) container.remove()
+
+    // Restore original challenge state
+    SaveManager.getInstance().setCompletedChallenges(this.savedChallenges)
 
     this.setEditorVisible(true)
 

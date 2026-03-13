@@ -1,5 +1,6 @@
-import { type EditorState, MAP_W, MAP_H } from './EditorState'
-import type { Direction, NPCData, StairData } from '@/data/types'
+import type { EditorState } from './EditorState'
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
+import type { Direction, NPCData, StairData, TeleportData } from '@/data/types'
 
 const AUTOSAVE_KEY = 'editor_autosave'
 const AUTOSAVE_DEBOUNCE = 1000
@@ -32,12 +33,16 @@ export class ImportExport {
     const payload = {
       floorId: d.floorId,
       floorName: d.floorName,
+      mapWidth: d.mapWidth,
+      mapHeight: d.mapHeight,
       groundLayer: d.groundLayer,
       wallsLayer: d.wallsLayer,
+      wallsCollision: d.wallsCollision,
       effectsLayer: d.effectsLayer,
       playerSpawn: d.playerSpawn,
       npcs: d.npcs,
       stairs: d.stairs,
+      teleports: d.teleports,
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
   }
@@ -47,13 +52,18 @@ export class ImportExport {
     if (!raw) return false
     try {
       const data = JSON.parse(raw)
-      const size = MAP_W * MAP_H
+      const w = data.mapWidth || MAP_WIDTH_TILES
+      const h = data.mapHeight || MAP_HEIGHT_TILES
+      const size = w * h
 
       this.state.loadState({
         floorId: data.floorId || 'floor-01',
         floorName: data.floorName || 'New Floor',
+        mapWidth: w,
+        mapHeight: h,
         groundLayer: Array.isArray(data.groundLayer) ? data.groundLayer : new Array(size).fill(''),
         wallsLayer: Array.isArray(data.wallsLayer) ? data.wallsLayer : new Array(size).fill(''),
+        wallsCollision: Array.isArray(data.wallsCollision) ? data.wallsCollision : new Array(size).fill(true),
         effectsLayer: data.effectsLayer || new Array(size).fill(0),
         playerSpawn: data.playerSpawn || null,
         npcs: (data.npcs || []).map((n: Record<string, unknown>) => ({
@@ -61,6 +71,7 @@ export class ImportExport {
           name: n.name || n.npcId || 'NPC',
         })),
         stairs: data.stairs || [],
+        teleports: data.teleports || [],
       })
       return true
     } catch {
@@ -88,13 +99,15 @@ export class ImportExport {
     const d = this.state.snapshot
     const varName = d.floorId.replace(/-/g, '')
     const spawn = d.playerSpawn || { tileX: 10, tileY: 12, facing: 'up' }
+    const mW = d.mapWidth
+    const mH = d.mapHeight
 
-    // Format tile layers (20 items per row)
+    // Format tile layers (mapWidth items per row)
     const formatLayer = (layer: readonly string[]): string => {
       const rows: string[] = []
-      for (let row = 0; row < MAP_H; row++) {
-        const start = row * MAP_W
-        const items = layer.slice(start, start + MAP_W).map(k => `'${k}'`)
+      for (let row = 0; row < mH; row++) {
+        const start = row * mW
+        const items = layer.slice(start, start + mW).map(k => `'${k}'`)
         rows.push('    ' + items.join(', ') + ',')
       }
       return rows.join('\n')
@@ -126,6 +139,19 @@ export class ImportExport {
       return `    { tileX: ${s.tileX}, tileY: ${s.tileY}, targetFloorId: ${target} }`
     }).join(',\n')
 
+    const teleportStr = d.teleports.map(t => {
+      const fields = [
+        `id: '${this.esc(t.id)}'`,
+        `tileX: ${t.tileX}`,
+        `tileY: ${t.tileY}`,
+        `role: '${t.role}'`,
+      ]
+      if (t.role === 'sender' && t.targetId) {
+        fields.push(`targetId: '${this.esc(t.targetId)}'`)
+      }
+      return `    { ${fields.join(', ')} }`
+    }).join(',\n')
+
     const required = d.npcs
       .map(n => n.challengeId)
       .filter((id): id is string => !!id)
@@ -141,9 +167,9 @@ export class ImportExport {
       5: { effect: 'redirect', direction: 'right' },
     }
     const effects: string[] = []
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        const eid = d.effectsLayer[y * MAP_W + x]
+    for (let y = 0; y < mH; y++) {
+      for (let x = 0; x < mW; x++) {
+        const eid = d.effectsLayer[y * mW + x]
         const info = effectIdToType[eid]
         if (!info) continue
         const dirPart = info.direction ? `, direction: '${info.direction}'` : ''
@@ -156,12 +182,31 @@ export class ImportExport {
       ? `  tileEffects: [\n${effectsStr}\n  ],\n`
       : ''
 
+    // Build noCollision sparse array (only when any wall tile has collision disabled)
+    const noCollisionEntries: string[] = []
+    for (let y = 0; y < mH; y++) {
+      for (let x = 0; x < mW; x++) {
+        const idx = y * mW + x
+        if (d.wallsLayer[idx] !== '' && !d.wallsCollision[idx]) {
+          noCollisionEntries.push(`    { tileX: ${x}, tileY: ${y} }`)
+        }
+      }
+    }
+    const noCollisionBlock = noCollisionEntries.length
+      ? `  noCollision: [\n${noCollisionEntries.join(',\n')}\n  ],\n`
+      : ''
+
+    // Only include width/height if non-default
+    const sizeBlock = (mW !== MAP_WIDTH_TILES || mH !== MAP_HEIGHT_TILES)
+      ? `  width: ${mW},\n  height: ${mH},\n`
+      : ''
+
     return `import type { FloorData } from '@/data/types'
 
 export const ${varName}: FloorData = {
   id: '${d.floorId}',
   name: '${this.esc(d.floorName)}',
-  groundLayer: [
+${sizeBlock}  groundLayer: [
 ${formatLayer(d.groundLayer)}
   ],
   wallsLayer: [
@@ -174,9 +219,9 @@ ${npcStr}
   requiredChallenges: [
 ${required}
   ],
-${tileEffectsBlock}  stairs: [
+${tileEffectsBlock}${noCollisionBlock}  stairs: [
 ${stairStr}
-  ],
+  ],${d.teleports.length ? `\n  teleports: [\n${teleportStr}\n  ],` : ''}
 }
 `
   }
@@ -189,9 +234,38 @@ ${stairStr}
       const nameMatch = text.match(/name:\s*'([^']+)'/)
       const spawnMatch = text.match(/playerStart:\s*\{\s*tileX:\s*(\d+),\s*tileY:\s*(\d+),\s*facing:\s*'(\w+)'/)
 
-      // Parse tile layers
-      const groundLayer = this.parseStringArray(text, 'groundLayer')
-      const wallsLayer = this.parseStringArray(text, 'wallsLayer')
+      // Parse dimensions (fallback to inferring from layer length, then defaults)
+      const widthMatch = text.match(/width:\s*(\d+)/)
+      const heightMatch = text.match(/height:\s*(\d+)/)
+
+      // Parse tile layers first to infer size if needed
+      const groundItems = this.parseStringItems(text, 'groundLayer')
+      const wallsItems = this.parseStringItems(text, 'wallsLayer')
+
+      // Determine map dimensions
+      let mW = widthMatch ? parseInt(widthMatch[1]) : 0
+      let mH = heightMatch ? parseInt(heightMatch[1]) : 0
+
+      if (!mW || !mH) {
+        // Infer from layer length — assume square-ish or use default width
+        const layerLen = Math.max(groundItems.length, wallsItems.length)
+        if (layerLen > 0 && mW) {
+          mH = Math.ceil(layerLen / mW)
+        } else if (layerLen > 0 && mH) {
+          mW = Math.ceil(layerLen / mH)
+        } else if (layerLen > 0) {
+          // Try default width
+          mW = MAP_WIDTH_TILES
+          mH = Math.ceil(layerLen / mW)
+        } else {
+          mW = MAP_WIDTH_TILES
+          mH = MAP_HEIGHT_TILES
+        }
+      }
+
+      const size = mW * mH
+      const groundLayer = this.padOrTruncate(groundItems, size, '')
+      const wallsLayer = this.padOrTruncate(wallsItems, size, '')
 
       const npcsBlockMatch = text.match(/npcs:\s*\[([\s\S]*?)\]\s*,\s*(?:requiredChallenges|stairs)/)
       const npcs: NPCData[] = []
@@ -228,7 +302,7 @@ ${stairStr}
             }))
           }
           // Bounds check
-          if (npc.tileX >= 0 && npc.tileX < MAP_W && npc.tileY >= 0 && npc.tileY < MAP_H) {
+          if (npc.tileX >= 0 && npc.tileX < mW && npc.tileY >= 0 && npc.tileY < mH) {
             npcs.push(npc)
           }
         }
@@ -244,7 +318,7 @@ ${stairStr}
           const targetMatch = block.match(/targetFloorId:\s*(?:'([^']+)'|null)/)
           const stairX = this.extractNum(block, 'tileX')
           const stairY = this.extractNum(block, 'tileY')
-          if (stairX >= 0 && stairX < MAP_W && stairY >= 0 && stairY < MAP_H) {
+          if (stairX >= 0 && stairX < mW && stairY >= 0 && stairY < mH) {
             stairs.push({
               tileX: stairX,
               tileY: stairY,
@@ -255,7 +329,7 @@ ${stairStr}
       }
 
       // Parse tileEffects into effectsLayer
-      const effectsLayer = new Array(MAP_W * MAP_H).fill(0)
+      const effectsLayer = new Array(size).fill(0)
       const effectTypeToId: Record<string, Record<string, number>> = {
         ice: { '': 1 },
         redirect: { down: 2, up: 3, left: 4, right: 5 },
@@ -271,8 +345,44 @@ ${stairStr}
           const ey = this.extractNum(block, 'tileY')
           const dir = this.extractStr(block, 'direction') || ''
           const mapping = effectTypeToId[effectType]
-          if (mapping && ex >= 0 && ex < MAP_W && ey >= 0 && ey < MAP_H) {
-            effectsLayer[ey * MAP_W + ex] = mapping[dir] ?? mapping[''] ?? 0
+          if (mapping && ex >= 0 && ex < mW && ey >= 0 && ey < mH) {
+            effectsLayer[ey * mW + ex] = mapping[dir] ?? mapping[''] ?? 0
+          }
+        }
+      }
+
+      // Parse noCollision sparse array into wallsCollision boolean array
+      const wallsCollision = new Array(size).fill(true)
+      const noColMatch = text.match(/noCollision:\s*\[([\s\S]*?)\]\s*,/)
+      if (noColMatch) {
+        const entryRegex = /tileX:\s*(\d+),\s*tileY:\s*(\d+)/g
+        let ncm
+        while ((ncm = entryRegex.exec(noColMatch[1])) !== null) {
+          const ex = parseInt(ncm[1])
+          const ey = parseInt(ncm[2])
+          if (ex >= 0 && ex < mW && ey >= 0 && ey < mH) {
+            wallsCollision[ey * mW + ex] = false
+          }
+        }
+      }
+
+      // Parse teleports
+      const teleports: TeleportData[] = []
+      const teleportsBlockMatch = text.match(/teleports:\s*\[([\s\S]*?)\]\s*,?\s*\}/)
+      if (teleportsBlockMatch) {
+        const tpRegex = /\{[^}]*id:\s*'[^']+[^}]*\}/g
+        let tpMatch
+        while ((tpMatch = tpRegex.exec(teleportsBlockMatch[1])) !== null) {
+          const block = tpMatch[0]
+          const tpId = this.extractStr(block, 'id')
+          const tx = this.extractNum(block, 'tileX')
+          const ty = this.extractNum(block, 'tileY')
+          const role = this.extractStr(block, 'role') || 'sender'
+          const targetId = this.extractStr(block, 'targetId')
+          if (tpId && !isNaN(tx) && !isNaN(ty) && tx >= 0 && tx < mW && ty >= 0 && ty < mH) {
+            const tp: TeleportData = { id: tpId, tileX: tx, tileY: ty, role: role as TeleportData['role'] }
+            if (targetId) tp.targetId = targetId
+            teleports.push(tp)
           }
         }
       }
@@ -280,8 +390,11 @@ ${stairStr}
       this.state.loadState({
         floorId: idMatch?.[1] || this.state.snapshot.floorId,
         floorName: nameMatch?.[1] || this.state.snapshot.floorName,
+        mapWidth: mW,
+        mapHeight: mH,
         groundLayer,
         wallsLayer,
+        wallsCollision,
         playerSpawn: spawnMatch ? {
           tileX: parseInt(spawnMatch[1]),
           tileY: parseInt(spawnMatch[2]),
@@ -289,6 +402,7 @@ ${stairStr}
         } : this.state.snapshot.playerSpawn as typeof this.state.snapshot.playerSpawn,
         npcs,
         stairs,
+        teleports,
         effectsLayer,
       })
       return true
@@ -297,17 +411,18 @@ ${stairStr}
     }
   }
 
-  /** Parse a named string[] field from TS source (e.g. groundLayer: ['a', 'b', ...]) */
-  private parseStringArray(text: string, fieldName: string): string[] {
+  /** Extract all quoted string items from a named array field */
+  private parseStringItems(text: string, fieldName: string): string[] {
     const regex = new RegExp(`${fieldName}:\\s*\\[([\\s\\S]*?)\\]\\s*,`)
     const match = text.match(regex)
-    if (!match) return new Array(MAP_W * MAP_H).fill('')
-    // Extract all quoted strings (handles both '' and 'value')
-    const items = [...match[1].matchAll(/'([^']*)'/g)].map(m => m[1])
-    // Pad or truncate to expected size
-    const size = MAP_W * MAP_H
-    if (items.length >= size) return items.slice(0, size)
-    return [...items, ...new Array(size - items.length).fill('')]
+    if (!match) return []
+    return [...match[1].matchAll(/'([^']*)'/g)].map(m => m[1])
+  }
+
+  /** Pad or truncate array to exact size */
+  private padOrTruncate<T>(arr: T[], size: number, fill: T): T[] {
+    if (arr.length >= size) return arr.slice(0, size)
+    return [...arr, ...new Array(size - arr.length).fill(fill)]
   }
 
   private extractStr(block: string, key: string): string | null {

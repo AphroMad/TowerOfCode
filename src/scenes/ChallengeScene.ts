@@ -12,7 +12,6 @@ interface ChallengeSceneData {
 
 export class ChallengeScene extends Phaser.Scene {
   private challenge: IChallenge | null = null
-  private escKey?: Phaser.Input.Keyboard.Key
   private returnScene = 'GameScene'
 
   constructor() {
@@ -33,23 +32,6 @@ export class ChallengeScene extends Phaser.Scene {
       color: '#ffdd44',
       fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(11)
-
-    // Close button (X) — top right
-    const closeBtn = this.add.text(cam.width - 20, 16, 'X', {
-      fontSize: '20px',
-      color: '#888888',
-      fontFamily: 'monospace',
-      backgroundColor: '#333344',
-      padding: { x: 8, y: 4 },
-    }).setOrigin(1, 0).setDepth(15).setInteractive({ useHandCursor: true })
-
-    closeBtn.on('pointerover', () => closeBtn.setColor('#ff4444'))
-    closeBtn.on('pointerout', () => closeBtn.setColor('#888888'))
-    closeBtn.on('pointerdown', () => this.closeScene())
-
-    // ESC key also closes
-    this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
-    this.escKey.on('down', () => this.closeScene())
 
     this.returnScene = data.returnScene ?? 'GameScene'
 
@@ -79,10 +61,6 @@ export class ChallengeScene extends Phaser.Scene {
     if (this.challenge) {
       this.challenge.destroy()
       this.challenge = null
-    }
-    if (this.escKey) {
-      this.input.keyboard!.removeKey(this.escKey)
-      this.escKey = undefined
     }
     this.scene.stop()
     this.scene.resume(this.returnScene)

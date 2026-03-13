@@ -63,6 +63,15 @@ export class SaveManager {
     this.save()
   }
 
+  getCompletedChallenges(): string[] {
+    return [...this.data.completedChallenges]
+  }
+
+  setCompletedChallenges(ids: string[]): void {
+    this.data.completedChallenges = [...ids]
+    this.save()
+  }
+
   reset(): void {
     this.data = { ...DEFAULT_SAVE, completedChallenges: [] }
     this.save()

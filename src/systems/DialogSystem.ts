@@ -30,6 +30,10 @@ export class DialogSystem {
   start(lines: DialogLine[]): void {
     this.lines = lines
     this.currentLineIndex = 0
+    if (lines.length === 0) {
+      this.onComplete()
+      return
+    }
     this.typeLine()
   }
 

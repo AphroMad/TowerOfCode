@@ -54,12 +54,17 @@
       /* ── Canvas container (center) ── */
       #canvas-container {
         flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      #canvas-scroll {
+        width: 100%;
+        height: 100%;
         overflow: auto;
         padding: 12px;
         display: flex;
         align-items: flex-start;
         justify-content: flex-start;
-        position: relative;
       }
 
       /* ── Zoom overlay ── */
@@ -345,6 +350,7 @@
         <div class="panel-title">Shortcuts</div>
         <div class="help-item"><span class="help-key">B</span> Brush tool</div>
         <div class="help-item"><span class="help-key">E</span> Eraser tool</div>
+        <div class="help-item"><span class="help-key">M</span> Move tool (select + drag ground tiles)</div>
         <div class="help-item"><span class="help-key">G</span> Ground layer</div>
         <div class="help-item"><span class="help-key">W</span> Objects layer</div>
         <div class="help-item"><span class="help-key">F</span> Effects layer</div>

@@ -88,23 +88,6 @@ function openChallenge(index: number) {
           fontFamily: 'monospace',
         }).setOrigin(0.5).setDepth(11)
 
-        // Close button (X)
-        const closeBtn = scene.add.text(cam.width - 20, 16, 'X', {
-          fontSize: '20px',
-          color: '#888888',
-          fontFamily: 'monospace',
-          backgroundColor: '#333344',
-          padding: { x: 8, y: 4 },
-        }).setOrigin(1, 0).setDepth(15).setInteractive({ useHandCursor: true })
-
-        closeBtn.on('pointerover', () => closeBtn.setColor('#ff4444'))
-        closeBtn.on('pointerout', () => closeBtn.setColor('#888888'))
-        closeBtn.on('pointerdown', () => closeChallenge())
-
-        // ESC key
-        const escKey = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
-        escKey.on('down', () => closeChallenge())
-
         // Create challenge
         activeChallenge = createChallenge(config.type)
         activeChallenge.create(scene, config, (success) => {

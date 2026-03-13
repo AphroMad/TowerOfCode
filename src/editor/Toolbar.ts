@@ -34,6 +34,7 @@ export class Toolbar {
     const toolGroup = this.makeGroup(el)
     this.makeToolBtn(toolGroup, 'Brush (B)', 'brush', 'Paint tiles on the grid')
     this.makeToolBtn(toolGroup, 'Eraser (E)', 'eraser', 'Remove tiles (set to empty)')
+    this.makeToolBtn(toolGroup, 'Move (M)', 'mover', 'Select and move all layers at once')
 
     this.makeSep(el)
 
@@ -79,6 +80,13 @@ export class Toolbar {
     const metaGroup = this.makeGroup(el)
     this.makeTextInput(metaGroup, 'ID:', 'floorId', 90, 'Unique floor identifier (e.g. floor-03)')
     this.makeTextInput(metaGroup, 'Name:', 'floorName', 120, 'Display name shown in-game')
+
+    this.makeSep(el)
+
+    // Map size
+    const sizeGroup = this.makeGroup(el)
+    this.makeSizeInput(sizeGroup, 'W:', 'mapWidth', 'Map width in tiles')
+    this.makeSizeInput(sizeGroup, 'H:', 'mapHeight', 'Map height in tiles')
 
     this.makeSep(el)
 
@@ -165,7 +173,9 @@ export class Toolbar {
       this.state.mutate(d => {
         d.activeTool = tool
         d.placingEntity = null
-        if (d.activeLayer === 'entities') d.activeLayer = 'ground'
+        if (d.activeLayer === 'entities') {
+          d.activeLayer = 'ground'
+        }
       })
     })
     this.state.onChange(() => {
@@ -200,6 +210,48 @@ export class Toolbar {
     parent.appendChild(input)
   }
 
+  private makeSizeInput(parent: HTMLElement, label: string, key: 'mapWidth' | 'mapHeight', tooltip: string): void {
+    const lbl = document.createElement('span')
+    lbl.textContent = label
+    lbl.style.color = '#888'
+    lbl.style.fontSize = '12px'
+    lbl.title = tooltip
+    parent.appendChild(lbl)
+
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.min = '1'
+    input.max = '100'
+    input.value = String(this.state.snapshot[key])
+    input.className = 'toolbar-input'
+    input.style.width = '48px'
+    input.title = tooltip
+    input.addEventListener('change', () => {
+      const val = parseInt(input.value)
+      if (isNaN(val) || val < 1 || val > 100) {
+        input.value = String(this.state.snapshot[key])
+        return
+      }
+      const newW = key === 'mapWidth' ? val : this.state.snapshot.mapWidth
+      const newH = key === 'mapHeight' ? val : this.state.snapshot.mapHeight
+      if (this.state.wouldResizeLoseData(newW, newH)) {
+        if (!confirm('Shrinking will delete tiles and/or entities outside the new bounds. Continue?')) {
+          input.value = String(this.state.snapshot[key])
+          return
+        }
+      }
+      this.undo.save()
+      this.state.resize(newW, newH)
+      this.undo.save()
+    })
+    this.state.onChange(() => {
+      if (document.activeElement !== input) {
+        input.value = String(this.state.snapshot[key])
+      }
+    })
+    parent.appendChild(input)
+  }
+
   private bindKeyboard(): void {
     document.addEventListener('keydown', (e) => {
       // Don't intercept when typing in inputs
@@ -216,6 +268,11 @@ export class Toolbar {
           d.activeTool = 'eraser'
           d.placingEntity = null
           if (d.activeLayer === 'entities') d.activeLayer = 'ground'
+        })
+      } else if (e.key === 'm' || e.key === 'M') {
+        this.state.mutate(d => {
+          d.activeTool = 'mover'
+          d.placingEntity = null
         })
       } else if (e.key === 'g' || e.key === 'G') {
         this.state.mutate(d => {
@@ -250,6 +307,7 @@ export class Toolbar {
   private updateStatus(): void {
     const d = this.state.snapshot
     const parts: string[] = []
+    parts.push(`${d.mapWidth}x${d.mapHeight}`)
     if (d.hoverTile) {
       parts.push(`Tile (${d.hoverTile.x}, ${d.hoverTile.y})`)
     }

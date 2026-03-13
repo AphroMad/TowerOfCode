@@ -46,13 +46,13 @@ export class ClChallengeChallenge extends ChallengeBase<ClChallengeConfig> {
 
     const doneBtn = document.createElement('button')
     doneBtn.className = 'cl-btn-primary'
-    doneBtn.textContent = 'Done'
+    doneBtn.textContent = this.t('challenge_btn_done')
     doneBtn.addEventListener('click', () => this.onComplete(true))
     btnBar.appendChild(doneBtn)
 
     const solBtn = document.createElement('button')
     solBtn.className = 'cl-btn'
-    solBtn.textContent = 'Show Solution'
+    solBtn.textContent = this.t('challenge_btn_show_solution')
     solBtn.addEventListener('click', () => this.toggleSolution())
     btnBar.appendChild(solBtn)
   }
@@ -82,7 +82,7 @@ export class ClChallengeChallenge extends ChallengeBase<ClChallengeConfig> {
 
     const solTitle = document.createElement('div')
     solTitle.className = 'cl-solution-title'
-    solTitle.textContent = 'Solution'
+    solTitle.textContent = this.t('challenge_title_solution')
     solPanel.appendChild(solTitle)
 
     // Render solution blocks
@@ -107,7 +107,7 @@ export class ClChallengeChallenge extends ChallengeBase<ClChallengeConfig> {
 
     const closeBtn = document.createElement('button')
     closeBtn.className = 'cl-btn'
-    closeBtn.textContent = 'Close Solution'
+    closeBtn.textContent = this.t('challenge_btn_close_solution')
     closeBtn.addEventListener('click', () => {
       solOverlay.remove()
       this.showSolution = false

@@ -1,5 +1,8 @@
 import Phaser from 'phaser'
 import { getAllTiles } from '@/data/tiles/TileRegistry'
+import { getAllSprites } from '@/data/sprites/SpriteRegistry'
+import { normalizeTileTextures } from '@/utils/normalizeTileTextures'
+import { normalizeSpriteTextures } from '@/utils/normalizeSpriteTextures'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -13,16 +16,10 @@ export class BootScene extends Phaser.Scene {
     for (const tile of getAllTiles()) {
       this.load.image(tile.key, tile.url)
     }
-    // Player: 256x256 sheet, 4 cols x 4 rows = 64x64 per frame
-    this.load.spritesheet('player', 'assets/sprites/player.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    })
-    // NPC: 128x256 sheet, 2 cols x 4 rows = 64x64 per frame
-    this.load.spritesheet('npc', 'assets/sprites/npc.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    })
+    // Sprites (auto-discovered, loaded as images — converted to spritesheets in create)
+    for (const sprite of getAllSprites()) {
+      this.load.image(sprite.key, sprite.url)
+    }
     // Stairs
     this.load.image('stairs_straight', 'assets/tilesets/stairs_straight.png')
     // UI
@@ -30,6 +27,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    normalizeTileTextures(this)
+    normalizeSpriteTextures(this)
     this.scene.start('MenuScene')
   }
 

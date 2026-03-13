@@ -25,5 +25,32 @@
   "save_created": "New game started!",
 
   "stairs_coming_soon": "The upper floors are still under construction...",
-  "stairs_blocked": "Complete all challenges before ascending!"
+  "stairs_blocked": "Complete all challenges before ascending!",
+
+  "challenge_replay_prompt": "Would you like to review the lesson?",
+  "yes": "Yes",
+  "no": "No",
+
+  "challenge_feedback_correct": "Correct!",
+  "challenge_feedback_incorrect": "Incorrect",
+  "challenge_feedback_not_quite": "Not quite — try again!",
+  "challenge_feedback_all_matched": "All matched correctly!",
+  "challenge_validation_fill_all": "Fill all slots first!",
+
+  "challenge_btn_retry": "Retry",
+  "challenge_btn_verify": "Verify",
+  "challenge_btn_done": "Done",
+  "challenge_btn_continue": "Continue",
+  "challenge_btn_show_solution": "Show Solution",
+  "challenge_btn_close_solution": "Close Solution",
+  "challenge_title_solution": "Solution",
+  "challenge_label_options": "Options:",
+
+  "challenge_hint_mcq": "[UP/DOWN] select  [ENTER] submit  [ESC] close",
+  "challenge_hint_esc_close": "[ESC] to close",
+  "challenge_hint_enter_retry": "[ENTER] retry  [ESC] close",
+  "challenge_hint_fill_in": "Click a slot, then click an option. Click a filled slot to remove it. [ESC] close",
+  "challenge_hint_matching": "Click a term, then click a match. Keyboard: [ARROWS] + [ENTER]  [ESC] close",
+  "challenge_hint_or_esc": "or press ESC",
+  "challenge_attempt": "Attempt"
 }

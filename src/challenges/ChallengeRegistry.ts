@@ -9,11 +9,11 @@ type ChallengeConstructor = new () => IChallenge
 
 const registry = new Map<string, ChallengeConstructor>()
 
-registry.set('cl-explanation', ClExplanationChallenge)
-registry.set('cl-multiple-choice', ClMultipleChoiceChallenge)
-registry.set('cl-fill-in-text', ClFillInTextChallenge)
-registry.set('cl-matching-pairs', ClMatchingPairsChallenge)
-registry.set('cl-challenge', ClChallengeChallenge)
+registry.set('explanation', ClExplanationChallenge)
+registry.set('multiple_choice', ClMultipleChoiceChallenge)
+registry.set('fill_in_text', ClFillInTextChallenge)
+registry.set('matching_pairs', ClMatchingPairsChallenge)
+registry.set('challenge', ClChallengeChallenge)
 
 export function createChallenge(type: string): IChallenge {
   const Ctor = registry.get(type)

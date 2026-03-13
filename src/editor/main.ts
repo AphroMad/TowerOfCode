@@ -19,8 +19,13 @@ const statusEl = document.getElementById('status-bar')!
 const sidebarEl = document.getElementById('sidebar')!
 const canvasContainer = document.getElementById('canvas-container')!
 
+// Inner scrollable area for the canvas (overlays stay on the outer container)
+const canvasScroll = document.createElement('div')
+canvasScroll.id = 'canvas-scroll'
+canvasContainer.appendChild(canvasScroll)
+
 // Build UI
-const canvas = new EditorCanvas(canvasContainer, state, undo)
+const canvas = new EditorCanvas(canvasScroll, state, undo)
 new TilePalette(sidebarEl, state)
 new EntityPanel(sidebarEl, state, undo)
 new Toolbar(toolbarEl, statusEl, state, undo, io, testMode)

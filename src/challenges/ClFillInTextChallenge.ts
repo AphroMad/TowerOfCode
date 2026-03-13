@@ -49,7 +49,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
     optLabel.style.fontSize = '12px'
     optLabel.style.color = '#888'
     optLabel.style.marginBottom = '8px'
-    optLabel.textContent = 'Options:'
+    optLabel.textContent = this.t('challenge_label_options')
     panel.appendChild(optLabel)
 
     // Option chips
@@ -61,7 +61,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
     // Verify button
     this.verifyBtn = document.createElement('button')
     this.verifyBtn.className = 'cl-btn-primary'
-    this.verifyBtn.textContent = 'Verify'
+    this.verifyBtn.textContent = this.t('challenge_btn_verify')
     this.verifyBtn.style.marginBottom = '10px'
     this.verifyBtn.addEventListener('click', () => this.checkAnswer())
     panel.appendChild(this.verifyBtn)
@@ -73,7 +73,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
     // Hint bar
     this.hintBar = document.createElement('div')
     this.hintBar.className = 'cl-hint-bar'
-    this.hintBar.textContent = 'Click a slot, then click an option. Click a filled slot to remove it. [ESC] close'
+    this.hintBar.textContent = this.t('challenge_hint_fill_in')
     panel.appendChild(this.hintBar)
 
     this.updateSlotHighlights()
@@ -133,6 +133,8 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
         slot.textContent = '____'
         slot.addEventListener('click', () => {
           if (this.answered) return
+          // Don't touch correctly verified slots
+          if (this.slotEls[slotIdx]?.classList.contains('correct')) return
           // If clicking a filled slot, remove its value
           if (this.slots[slotIdx]) {
             this.activeSlot = slotIdx
@@ -178,9 +180,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
   }
 
   private updateChipHighlights(): void {
-    for (let i = 0; i < this.chipEls.length; i++) {
-      this.chipEls[i].classList.toggle('selected', i === this.selectedOption)
-    }
+    // No visual highlight on chips — just track selectedOption internally
   }
 
   private placeOption(): void {
@@ -211,10 +211,18 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
   }
 
   private removeFromSlot(): void {
+    // Don't allow removing a correctly verified answer
+    if (this.slotEls[this.activeSlot]?.classList.contains('correct')) return
     if (this.slots[this.activeSlot]) {
       this.availableOptions.push(this.slots[this.activeSlot])
       this.slots[this.activeSlot] = ''
+      // Clear red marker and feedback when user removes the wrong answer
+      this.slotEls[this.activeSlot].classList.remove('incorrect')
+      this.feedbackArea.innerHTML = ''
       this.renderChips()
+      // Jump to first empty slot
+      const firstEmpty = this.slots.indexOf('')
+      if (firstEmpty !== -1) this.activeSlot = firstEmpty
       this.updateSlotHighlights()
     }
   }
@@ -225,12 +233,13 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
       this.feedbackArea.innerHTML = ''
       const warn = document.createElement('div')
       warn.className = 'cl-failure'
-      warn.textContent = 'Fill all slots first!'
+      warn.textContent = this.t('challenge_validation_fill_all')
       this.feedbackArea.appendChild(warn)
       this.addTimer(() => { warn.remove() }, 1500)
       return
     }
 
+    this.addAttempt()
     const correctAnswers = this.config.content.exercise.correctAnswers
     let allCorrect = true
 
@@ -252,24 +261,17 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
 
       const success = document.createElement('div')
       success.className = 'cl-success'
-      success.textContent = 'Correct!'
+      success.textContent = this.t('challenge_feedback_correct')
       this.feedbackArea.appendChild(success)
 
-      this.hintBar.textContent = '[ESC] to close'
+      this.hintBar.textContent = this.t('challenge_hint_esc_close')
     } else {
       const fail = document.createElement('div')
       fail.className = 'cl-failure'
-      fail.textContent = 'Not quite — try again!'
+      fail.textContent = this.t('challenge_feedback_not_quite')
       this.feedbackArea.appendChild(fail)
 
-      // Flash then clear incorrect markers (keep values in slots)
-      this.addTimer(() => {
-        this.slotEls.forEach(el => {
-          el.classList.remove('incorrect', 'correct')
-        })
-        this.updateSlotHighlights()
-        fail.remove()
-      }, 1200)
+      // Feedback stays until user modifies a slot
     }
   }
 }

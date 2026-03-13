@@ -3,5 +3,9 @@
     "Salut ! Je suis aussi un élève ici.",
     "Astuce : Les variables peuvent stocker différents types de données - des nombres, du texte, et plus encore !",
     "Bonne chance avec le défi du Professeur !"
+  ],
+  "gatekeeper_blocked": [
+    "On ne passe pas !",
+    "Tu dois compléter tous les défis de cet étage avant de continuer."
   ]
 }

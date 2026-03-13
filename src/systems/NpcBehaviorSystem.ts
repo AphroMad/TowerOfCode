@@ -3,6 +3,7 @@ import type { NPC } from '@/entities/NPC'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
 import type { Player } from '@/entities/Player'
 import type { Direction } from '@/data/types'
+import { SaveManager } from '@/systems/SaveManager'
 
 const DIR_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
@@ -46,7 +47,7 @@ export class NpcBehaviorSystem {
     this.mapHeight = grid.mapHeight
 
     for (const npc of npcs) {
-      if (!npc.data.behavior || npc.data.behavior === 'static') continue
+      if (!npc.data.behavior || npc.data.behavior === 'static' || npc.data.behavior === 'gatekeeper') continue
       this.states.push({
         npc,
         detecting: false,
@@ -69,10 +70,17 @@ export class NpcBehaviorSystem {
   }
 
   update(delta: number): void {
+    const save = SaveManager.getInstance()
     for (const state of this.states) {
       if (state.detecting) continue
 
       const { npc } = state
+
+      // Skip behavior if this NPC's challenge is already completed
+      if (npc.data.challengeId && save.isChallengeCompleted(npc.data.challengeId)) continue
+
+      // After detection+dialog, stop all behavior (no more lookout/patrol)
+      if (state.hasDetected) continue
 
       if (npc.data.behavior === 'lookout') {
         this.updateLookout(state, delta)
@@ -166,6 +174,7 @@ export class NpcBehaviorSystem {
       this.grid.unfreeze()
       state.detecting = false
       state.hasDetected = true
+
       this.scene.events.off('resume', onResume)
       const idx = this.pendingResumeHandlers.indexOf(onResume)
       if (idx >= 0) this.pendingResumeHandlers.splice(idx, 1)
@@ -203,6 +212,12 @@ export class NpcBehaviorSystem {
 
       await npc.walkToTile(this.scene, nextX, nextY)
     }
+  }
+
+  /** Mark an NPC as already detected (prevents re-detection after manual interaction) */
+  markDetected(npc: NPC): void {
+    const state = this.states.find(s => s.npc === npc)
+    if (state) state.hasDetected = true
   }
 
   // ── Lookout ──

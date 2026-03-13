@@ -25,5 +25,32 @@
   "save_created": "Nouvelle partie commencée !",
 
   "stairs_coming_soon": "Les étages supérieurs sont encore en construction...",
-  "stairs_blocked": "Termine tous les défis avant de monter !"
+  "stairs_blocked": "Termine tous les défis avant de monter !",
+
+  "challenge_replay_prompt": "Voulez-vous revoir la leçon ?",
+  "yes": "Oui",
+  "no": "Non",
+
+  "challenge_feedback_correct": "Correct !",
+  "challenge_feedback_incorrect": "Incorrect",
+  "challenge_feedback_not_quite": "Pas tout à fait — réessaie !",
+  "challenge_feedback_all_matched": "Toutes les paires sont correctes !",
+  "challenge_validation_fill_all": "Remplis tous les trous d'abord !",
+
+  "challenge_btn_retry": "Réessayer",
+  "challenge_btn_verify": "Vérifier",
+  "challenge_btn_done": "Terminé",
+  "challenge_btn_continue": "Continuer",
+  "challenge_btn_show_solution": "Voir la solution",
+  "challenge_btn_close_solution": "Fermer la solution",
+  "challenge_title_solution": "Solution",
+  "challenge_label_options": "Options :",
+
+  "challenge_hint_mcq": "[HAUT/BAS] choisir  [ENTRÉE] valider  [ESC] fermer",
+  "challenge_hint_esc_close": "[ESC] fermer",
+  "challenge_hint_enter_retry": "[ENTRÉE] réessayer  [ESC] fermer",
+  "challenge_hint_fill_in": "Clique un trou, puis une option. Clique un trou rempli pour le vider. [ESC] fermer",
+  "challenge_hint_matching": "Clique un terme, puis une correspondance. Clavier : [FLÈCHES] + [ENTRÉE]  [ESC] fermer",
+  "challenge_hint_or_esc": "ou appuie sur ESC",
+  "challenge_attempt": "Tentative"
 }

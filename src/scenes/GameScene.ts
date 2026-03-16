@@ -8,9 +8,10 @@ import { SaveManager } from '@/systems/SaveManager'
 import { getFloorById } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
 import type { ChallengeConfig, Direction, FloorData } from '@/data/types'
 import { buildTiledMapJson } from '@/utils/buildTiledMapJson'
+import { AnimatedTileSystem } from '@/systems/AnimatedTileSystem'
 import { tileToPixel } from '@/utils/helpers'
 
 export class GameScene extends Phaser.Scene {
@@ -20,6 +21,8 @@ export class GameScene extends Phaser.Scene {
   private interaction!: InteractionSystem
   private behaviorSystem!: NpcBehaviorSystem
   private wallLayer!: Phaser.Tilemaps.TilemapLayer
+  private animatedTiles?: AnimatedTileSystem
+  private blockSprites: Map<string, Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image> = new Map()
   private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
   private floor!: FloorData
@@ -46,7 +49,7 @@ export class GameScene extends Phaser.Scene {
     // Build Tiled JSON from floor tile data and inject into cache
     const mapW = floor.width ?? MAP_WIDTH_TILES
     const mapH = floor.height ?? MAP_HEIGHT_TILES
-    const mapJson = buildTiledMapJson(floor.groundLayer, floor.wallsLayer, mapW, mapH)
+    const { json: mapJson, keyToGid } = buildTiledMapJson(floor.groundLayer, floor.wallsLayer, mapW, mapH)
     this.cache.tilemap.add(floor.id, {
       data: mapJson,
       format: Phaser.Tilemaps.Formats.TILED_JSON,
@@ -62,10 +65,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Ground layer
-    map.createLayer('Ground', tilesets, 0, 0)
+    const groundTileLayer = map.createLayer('Ground', tilesets, 0, 0)!
 
     // Walls layer (collision)
     this.wallLayer = map.createLayer('Walls', tilesets, 0, 0)!
+
+    // Animated tiles (cycles frames for tiles with _f1/_f2/... naming)
+    this.animatedTiles = new AnimatedTileSystem([groundTileLayer, this.wallLayer], keyToGid)
 
     // Determine player spawn: near the arrival stair, or default playerStart
     const spawn = this.resolveSpawn(floor, data?.fromDirection, data?.fromFloorId)
@@ -95,6 +101,15 @@ export class GameScene extends Phaser.Scene {
       this.gridMovement.blockTile(npcData.tileX, npcData.tileY)
       return npc
     })
+
+    // Pushable blocks
+    this.blockSprites.clear()
+    if (floor.blocks?.length) {
+      for (const b of floor.blocks) {
+        this.createBlock(b.tileX, b.tileY, b.spriteKey)
+      }
+    }
+    this.gridMovement.setPushBlockCallback((bx, by, dir) => this.tryPushBlock(bx, by, dir))
 
     // Behavior system (detect, lookout, patrol)
     this.behaviorSystem = new NpcBehaviorSystem(this, this.npcs, this.gridMovement, this.player)
@@ -174,11 +189,17 @@ export class GameScene extends Phaser.Scene {
     if (this.behaviorSystem) {
       this.behaviorSystem.update(delta)
     }
+    if (this.animatedTiles) {
+      this.animatedTiles.update(delta)
+    }
 
     // Y-sort: sprites lower on screen render on top
     this.player.sprite.setDepth(this.player.sprite.y)
     for (const npc of this.npcs) {
       npc.sprite.setDepth(npc.sprite.y)
+    }
+    for (const sprite of this.blockSprites.values()) {
+      sprite.setDepth(sprite.y)
     }
 
     // Stair trigger: check when player stops on a stair tile
@@ -309,6 +330,99 @@ export class GameScene extends Phaser.Scene {
         this.gridMovement.unblockTile(npc.data.tileX, npc.data.tileY)
       }
     }
+  }
+
+  private createBlock(tileX: number, tileY: number, spriteKey?: string): void {
+    const px = tileToPixel(tileX)
+    const py = tileToPixel(tileY)
+    let sprite: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image
+    if (spriteKey && this.textures.exists(spriteKey)) {
+      sprite = this.add.image(px, py, spriteKey).setDepth(py)
+    } else {
+      sprite = this.add.rectangle(px, py, 28, 28, 0x8B6914)
+        .setStrokeStyle(2, 0x5a4510)
+        .setDepth(py)
+    }
+    this.blockSprites.set(`${tileX},${tileY}`, sprite)
+    this.gridMovement.blockTile(tileX, tileY)
+  }
+
+  private tryPushBlock(blockX: number, blockY: number, dir: Direction): boolean {
+    const blockKey = `${blockX},${blockY}`
+    const sprite = this.blockSprites.get(blockKey)
+    if (!sprite) return false // not a block (probably an NPC)
+
+    const offsets: Record<Direction, { x: number; y: number }> = {
+      down: { x: 0, y: 1 }, up: { x: 0, y: -1 },
+      left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
+    }
+    const off = offsets[dir]
+    const destX = blockX + off.x
+    const destY = blockY + off.y
+
+    // Check if destination is a hole (special case: block fills hole)
+    const destEffect = this.floor.tileEffects?.find(
+      e => e.tileX === destX && e.tileY === destY && e.effect === 'hole'
+    )
+
+    // If not a hole, check if destination is blocked
+    if (!destEffect && this.gridMovement.isBlocked(destX, destY)) return false
+
+    // Perform the push — unblock source tile immediately so player can move in
+    this.gridMovement.unblockTile(blockX, blockY)
+    this.blockSprites.delete(blockKey)
+
+    const duration = (TILE_SIZE / PLAYER_MOVE_SPEED) * 1000
+
+    if (destEffect) {
+      // Block slides to hole, then sinks into it
+      const destPx = tileToPixel(destX)
+      const destPy = tileToPixel(destY)
+      this.tweens.add({
+        targets: sprite,
+        x: destPx,
+        y: destPy,
+        duration,
+        ease: 'Linear',
+        onComplete: () => {
+          // Sink animation: shrink + shift down + fade
+          this.tweens.add({
+            targets: sprite,
+            scaleX: 0.3,
+            scaleY: 0.3,
+            y: destPy + TILE_SIZE * 0.25,
+            alpha: 0,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => {
+              sprite.destroy()
+              this.gridMovement.removeTileEffect(destX, destY)
+              if (this.floor.tileEffects) {
+                const idx = this.floor.tileEffects.findIndex(
+                  e => e.tileX === destX && e.tileY === destY && e.effect === 'hole'
+                )
+                if (idx >= 0) this.floor.tileEffects.splice(idx, 1)
+              }
+            },
+          })
+        },
+      })
+    } else {
+      // Normal push — block moves to destination
+      const destKey = `${destX},${destY}`
+      this.blockSprites.set(destKey, sprite)
+      this.gridMovement.blockTile(destX, destY)
+
+      this.tweens.add({
+        targets: sprite,
+        x: tileToPixel(destX),
+        y: tileToPixel(destY),
+        duration,
+        ease: 'Linear',
+      })
+    }
+
+    return true
   }
 
   private handleNPCInteraction(npc: NPC): void {

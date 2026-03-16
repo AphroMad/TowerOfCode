@@ -1,4 +1,10 @@
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
+import { getAnimatedTileDefs } from '@/data/tiles/TileRegistry'
+
+export interface TiledMapResult {
+  json: object
+  keyToGid: Map<string, number>
+}
 
 /**
  * Build a Tiled-compatible JSON object from string tile-key layers.
@@ -9,11 +15,20 @@ export function buildTiledMapJson(
   wallsLayer: readonly string[],
   width: number = MAP_WIDTH_TILES,
   height: number = MAP_HEIGHT_TILES,
-): object {
+): TiledMapResult {
   // Collect all unique tile keys across both layers
   const usedKeys = new Set<string>()
   for (const key of groundLayer) if (key !== '') usedKeys.add(key)
   for (const key of wallsLayer) if (key !== '') usedKeys.add(key)
+
+  // Expand animated tile keys: ensure all frames have GIDs
+  for (const def of getAnimatedTileDefs()) {
+    if (usedKeys.has(def.key) && def.animFrames) {
+      for (const frameKey of def.animFrames) {
+        usedKeys.add(frameKey)
+      }
+    }
+  }
 
   // Sort for deterministic GID assignment
   const sortedKeys = [...usedKeys].sort()
@@ -44,7 +59,7 @@ export function buildTiledMapJson(
   const toGidLayer = (layer: readonly string[]): number[] =>
     layer.map(key => key === '' ? 0 : (keyToGid.get(key) ?? 0))
 
-  return {
+  const json = {
     compressionlevel: -1,
     height: height,
     width: width,
@@ -86,4 +101,6 @@ export function buildTiledMapJson(
     ],
     tilesets,
   }
+
+  return { json, keyToGid }
 }

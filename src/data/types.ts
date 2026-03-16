@@ -121,7 +121,7 @@ export type ChallengeConfig =
 
 // --- Tile Effects ---
 
-export type TileEffectType = 'ice' | 'redirect'
+export type TileEffectType = 'ice' | 'redirect' | 'hole'
 
 export interface TileEffectData {
   tileX: number
@@ -150,6 +150,14 @@ export interface TeleportData {
   targetId?: string // only for senders — id of another teleport to land on
 }
 
+// --- Pushable Blocks ---
+
+export interface PushableBlockData {
+  tileX: number
+  tileY: number
+  spriteKey?: string  // object tile key (e.g. 'objects/rock') — fallback to brown box
+}
+
 // --- Floor & Save ---
 
 export interface FloorData {
@@ -166,6 +174,7 @@ export interface FloorData {
   stairs: StairData[]
   teleports?: TeleportData[]
   tileEffects?: TileEffectData[]
+  blocks?: PushableBlockData[]
 }
 
 export interface SaveData {

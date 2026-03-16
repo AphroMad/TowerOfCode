@@ -1,6 +1,6 @@
 import type { EditorState } from './EditorState'
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
-import type { Direction, NPCData, StairData, TeleportData } from '@/data/types'
+import type { Direction, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 const AUTOSAVE_KEY = 'editor_autosave'
 const AUTOSAVE_DEBOUNCE = 1000
@@ -43,6 +43,7 @@ export class ImportExport {
       npcs: d.npcs,
       stairs: d.stairs,
       teleports: d.teleports,
+      blocks: d.blocks,
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
   }
@@ -72,6 +73,7 @@ export class ImportExport {
         })),
         stairs: data.stairs || [],
         teleports: data.teleports || [],
+        blocks: data.blocks || [],
       })
       return true
     } catch {
@@ -159,12 +161,19 @@ export class ImportExport {
       .join(',\n')
 
     // Build tileEffects from effectsLayer
+    const blockStr = d.blocks.map(b => {
+      const parts = [`tileX: ${b.tileX}`, `tileY: ${b.tileY}`]
+      if (b.spriteKey) parts.push(`spriteKey: '${b.spriteKey}'`)
+      return `    { ${parts.join(', ')} }`
+    }).join(',\n')
+
     const effectIdToType: Record<number, { effect: string; direction?: string }> = {
       1: { effect: 'ice' },
       2: { effect: 'redirect', direction: 'down' },
       3: { effect: 'redirect', direction: 'up' },
       4: { effect: 'redirect', direction: 'left' },
       5: { effect: 'redirect', direction: 'right' },
+      6: { effect: 'hole' },
     }
     const effects: string[] = []
     for (let y = 0; y < mH; y++) {
@@ -221,7 +230,7 @@ ${required}
   ],
 ${tileEffectsBlock}${noCollisionBlock}  stairs: [
 ${stairStr}
-  ],${d.teleports.length ? `\n  teleports: [\n${teleportStr}\n  ],` : ''}
+  ],${d.teleports.length ? `\n  teleports: [\n${teleportStr}\n  ],` : ''}${d.blocks.length ? `\n  blocks: [\n${blockStr}\n  ],` : ''}
 }
 `
   }
@@ -333,6 +342,7 @@ ${stairStr}
       const effectTypeToId: Record<string, Record<string, number>> = {
         ice: { '': 1 },
         redirect: { down: 2, up: 3, left: 4, right: 5 },
+        hole: { '': 6 },
       }
       const effectsBlockMatch = text.match(/tileEffects:\s*\[([\s\S]*?)\]\s*,/)
       if (effectsBlockMatch) {
@@ -387,6 +397,24 @@ ${stairStr}
         }
       }
 
+      // Parse blocks
+      const blocks: PushableBlockData[] = []
+      const blocksBlockMatch = text.match(/blocks:\s*\[([\s\S]*?)\]\s*,/)
+      if (blocksBlockMatch) {
+        const bRegex = /\{[^}]*tileX:\s*(\d+)[^}]*tileY:\s*(\d+)[^}]*\}/g
+        let bm
+        while ((bm = bRegex.exec(blocksBlockMatch[1])) !== null) {
+          const bx = parseInt(bm[1])
+          const by = parseInt(bm[2])
+          if (bx >= 0 && bx < mW && by >= 0 && by < mH) {
+            const entry: PushableBlockData = { tileX: bx, tileY: by }
+            const skMatch = bm[0].match(/spriteKey:\s*'([^']*)'/)
+            if (skMatch) entry.spriteKey = skMatch[1]
+            blocks.push(entry)
+          }
+        }
+      }
+
       this.state.loadState({
         floorId: idMatch?.[1] || this.state.snapshot.floorId,
         floorName: nameMatch?.[1] || this.state.snapshot.floorName,
@@ -403,6 +431,7 @@ ${stairStr}
         npcs,
         stairs,
         teleports,
+        blocks,
         effectsLayer,
       })
       return true

@@ -162,17 +162,19 @@ export class TestMode {
       tileEffects: this.buildTileEffects(d.effectsLayer),
       stairs: d.stairs.map(s => ({ ...s })),
       teleports: d.teleports.map(t => ({ ...t })),
+      blocks: d.blocks.map(b => ({ ...b })),
     }
   }
 
   private buildTileEffects(effectsLayer: number[]): TileEffectData[] {
     const effects: TileEffectData[] = []
-    const idToEffect: Record<number, { effect: 'ice' | 'redirect'; direction?: Direction }> = {
+    const idToEffect: Record<number, { effect: 'ice' | 'redirect' | 'hole'; direction?: Direction }> = {
       1: { effect: 'ice' },
       2: { effect: 'redirect', direction: 'down' },
       3: { effect: 'redirect', direction: 'up' },
       4: { effect: 'redirect', direction: 'left' },
       5: { effect: 'redirect', direction: 'right' },
+      6: { effect: 'hole' },
     }
     const mW = this.state.snapshot.mapWidth
     const mH = this.state.snapshot.mapHeight

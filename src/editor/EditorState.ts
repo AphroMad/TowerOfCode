@@ -1,9 +1,9 @@
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
-import type { Direction, NPCData, StairData, TeleportData } from '@/data/types'
+import type { Direction, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 export type Tool = 'brush' | 'eraser' | 'entity' | 'mover'
 export type LayerName = 'ground' | 'walls' | 'entities' | 'effects'
-export type EntityType = 'player' | 'npc' | 'stair' | 'teleport'
+export type EntityType = 'player' | 'npc' | 'stair' | 'teleport' | 'block'
 
 export interface PlayerSpawn {
   tileX: number
@@ -36,6 +36,7 @@ export interface EditorData {
   npcs: NPCData[]
   stairs: StairData[]
   teleports: TeleportData[]
+  blocks: PushableBlockData[]
 
   selectedEntityType: EntityType | null
   selectedEntityIndex: number // -1 = none
@@ -119,6 +120,7 @@ export class EditorState {
       npcs: [],
       stairs: [],
       teleports: [],
+      blocks: [],
       selectedEntityType: null,
       selectedEntityIndex: -1,
       placingEntity: null,
@@ -194,6 +196,11 @@ export class EditorState {
         return { type: 'teleport', index: i }
       }
     }
+    for (let i = 0; i < this._data.blocks.length; i++) {
+      if (this._data.blocks[i].tileX === x && this._data.blocks[i].tileY === y) {
+        return { type: 'block', index: i }
+      }
+    }
     return null
   }
 
@@ -247,6 +254,7 @@ export class EditorState {
     if (d.npcs.some(n => n.tileX >= newW || n.tileY >= newH)) return true
     if (d.stairs.some(s => s.tileX >= newW || s.tileY >= newH)) return true
     if (d.teleports.some(t => t.tileX >= newW || t.tileY >= newH)) return true
+    if (d.blocks.some(b => b.tileX >= newW || b.tileY >= newH)) return true
 
     return false
   }
@@ -285,6 +293,7 @@ export class EditorState {
     d.npcs = d.npcs.filter(n => n.tileX < newW && n.tileY < newH)
     d.stairs = d.stairs.filter(s => s.tileX < newW && s.tileY < newH)
     d.teleports = d.teleports.filter(t => t.tileX < newW && t.tileY < newH)
+    d.blocks = d.blocks.filter(b => b.tileX < newW && b.tileY < newH)
 
     // Clamp patrol paths
     for (const npc of d.npcs) {

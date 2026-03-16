@@ -57,7 +57,7 @@ export class EditorCanvas {
   private moverWalls: string[] = []        // walls
   private moverCollision: boolean[] = []   // wallsCollision
   private moverEffects: number[] = []      // effects
-  private moverEntities: { type: 'player' | 'npc' | 'stair' | 'teleport'; localX: number; localY: number }[] = []
+  private moverEntities: { type: 'player' | 'npc' | 'stair' | 'teleport' | 'block'; localX: number; localY: number }[] = []
   private moverDragStart: { x: number; y: number } | null = null
   private moverOffset = { dx: 0, dy: 0 }
 
@@ -150,6 +150,8 @@ export class EditorCanvas {
               md.stairs.splice(entity.index, 1)
             } else if (entity.type === 'teleport') {
               md.teleports.splice(entity.index, 1)
+            } else if (entity.type === 'block') {
+              md.blocks.splice(entity.index, 1)
             }
           })
           this.state.deselectEntity()
@@ -221,6 +223,11 @@ export class EditorCanvas {
             })
           })
           this.state.selectEntity('teleport', this.state.snapshot.teleports.length - 1)
+        } else if (d.placingEntity === 'block') {
+          this.state.mutateQuiet(md => {
+            md.blocks.push({ tileX: tile.x, tileY: tile.y })
+          })
+          this.state.selectEntity('block', this.state.snapshot.blocks.length - 1)
         }
         this.state.mutate(md => { md.placingEntity = null })
         this.undo.save()
@@ -376,6 +383,11 @@ export class EditorCanvas {
             this.moverEntities.push({ type: 'teleport', localX: tp.tileX - x1, localY: tp.tileY - y1 })
           }
         }
+        for (const block of d2.blocks) {
+          if (block.tileX >= x1 && block.tileX <= x2 && block.tileY >= y1 && block.tileY <= y2) {
+            this.moverEntities.push({ type: 'block', localX: block.tileX - x1, localY: block.tileY - y1 })
+          }
+        }
 
         const hasContent = this.moverTiles.some(t => t !== '')
           || this.moverWalls.some(t => t !== '')
@@ -467,6 +479,12 @@ export class EditorCanvas {
                 tp.tileX = newX
                 tp.tileY = newY
               }
+            } else if (ent.type === 'block') {
+              const block = d.blocks.find(b => b.tileX === r.x + ent.localX && b.tileY === r.y + ent.localY)
+              if (block) {
+                block.tileX = newX
+                block.tileY = newY
+              }
             }
           }
         })
@@ -512,6 +530,11 @@ export class EditorCanvas {
         for (const tp of snap.teleports) {
           if (tp.tileX >= nr.x && tp.tileX < nr.x + nr.w && tp.tileY >= nr.y && tp.tileY < nr.y + nr.h) {
             this.moverEntities.push({ type: 'teleport', localX: tp.tileX - nr.x, localY: tp.tileY - nr.y })
+          }
+        }
+        for (const block of snap.blocks) {
+          if (block.tileX >= nr.x && block.tileX < nr.x + nr.w && block.tileY >= nr.y && block.tileY < nr.y + nr.h) {
+            this.moverEntities.push({ type: 'block', localX: block.tileX - nr.x, localY: block.tileY - nr.y })
           }
         }
         this.moverPhase = 'selected'
@@ -710,6 +733,15 @@ export class EditorCanvas {
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText('ICE', dx + s / 2, dy + s / 2)
+        } else if (effectId === 6) {
+          // Hole
+          ctx.fillStyle = 'rgba(34, 17, 0, 0.7)'
+          ctx.fillRect(dx, dy, s, s)
+          ctx.fillStyle = COL_EFFECT_TEXT
+          ctx.font = `bold ${Math.round(s * 0.24)}px monospace`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('HOLE', dx + s / 2, dy + s / 2)
         } else if (effectId >= 2 && effectId <= 5) {
           // Redirect
           ctx.fillStyle = COL_EFFECT_REDIRECT
@@ -899,6 +931,45 @@ export class EditorCanvas {
           ctx.lineWidth = 2
           ctx.strokeRect(target.tileX * s + pad, target.tileY * s + pad, s - pad * 2, s - pad * 2)
         }
+      }
+    }
+
+    // Pushable blocks — tile image if spriteKey set, else brown square with "B"
+    const COL_BLOCK = '#8B6914'
+    const COL_BLOCK_SEL = '#b08a1a'
+    for (let i = 0; i < d.blocks.length; i++) {
+      const block = d.blocks[i]
+      const x = block.tileX * s
+      const y = block.tileY * s
+      const selected = d.selectedEntityType === 'block' && d.selectedEntityIndex === i
+
+      if (block.spriteKey) {
+        const img = getTileImage(block.spriteKey)
+        if (img) {
+          ctx.globalAlpha = selected ? 1 : ENTITY_ALPHA
+          ctx.drawImage(img, 0, 0, img.width, img.height, x, y, s, s)
+          ctx.globalAlpha = 1
+        }
+      } else {
+        ctx.globalAlpha = ENTITY_ALPHA
+        ctx.fillStyle = selected ? COL_BLOCK_SEL : COL_BLOCK
+        ctx.fillRect(x + pad, y + pad, s - pad * 2, s - pad * 2)
+        ctx.globalAlpha = 1
+      }
+
+      ctx.strokeStyle = selected ? COL_SELECTION : COL_BLOCK
+      ctx.lineWidth = 2
+      ctx.strokeRect(x + pad, y + pad, s - pad * 2, s - pad * 2)
+
+      // Small "B" label in corner
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold ${Math.round(s * (block.spriteKey ? FONT_SM : FONT_MD))}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      if (block.spriteKey) {
+        ctx.fillText('B', x + s - pad, y + pad)
+      } else {
+        ctx.fillText('B', x + s / 2, y + s / 2)
       }
     }
 

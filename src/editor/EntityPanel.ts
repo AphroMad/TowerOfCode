@@ -5,6 +5,7 @@ import { getAllFloorIds } from '@/data/floors/FloorRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getAllChallengeIds } from '@/data/challenges'
 import { getSpriteKeys } from '@/data/sprites/SpriteRegistry'
+import { getTilesByCategory } from '@/data/tiles/TileRegistry'
 
 export class EntityPanel {
   private state: EditorState
@@ -45,6 +46,7 @@ export class EntityPanel {
     addBtn('+ NPC', 'npc')
     addBtn('+ Warp', 'stair')
     addBtn('+ Teleport', 'teleport')
+    addBtn('+ Block', 'block')
     this.wrapper.appendChild(btnRow)
 
     // Properties form
@@ -289,6 +291,28 @@ export class EntityPanel {
       this.addDeleteButton(() => {
         this.undo.save()
         d.teleports.splice(d.selectedEntityIndex, 1)
+        this.state.deselectEntity()
+      })
+    } else if (d.selectedEntityType === 'block') {
+      const block = d.blocks[d.selectedEntityIndex]
+      if (!block) return
+      title.textContent = 'Pushable Block'
+      this.formContainer.appendChild(title)
+
+      this.addInfo(`Position: (${block.tileX}, ${block.tileY})`)
+
+      // Sprite key dropdown (object tiles)
+      const objectTileKeys = ['(none)', ...getTilesByCategory('objects', false).map(t => t.key)]
+      this.addSelect('Sprite', objectTileKeys, block.spriteKey ?? '(none)', (v) => {
+        this.undo.save()
+        block.spriteKey = v === '(none)' ? undefined : v
+        this.state.emit()
+        this.undo.save()
+      })
+
+      this.addDeleteButton(() => {
+        this.undo.save()
+        d.blocks.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })
     }

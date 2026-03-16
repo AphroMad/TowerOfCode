@@ -19,6 +19,7 @@ const EFFECTS: EffectEntry[] = [
   { id: 3, label: 'Redirect \u2191', color: '#cc8844', arrow: '\u2191', folder: 'Redirect' },
   { id: 4, label: 'Redirect \u2190', color: '#cc8844', arrow: '\u2190', folder: 'Redirect' },
   { id: 5, label: 'Redirect \u2192', color: '#cc8844', arrow: '\u2192', folder: 'Redirect' },
+  { id: 6, label: 'Hole', color: '#442211', folder: 'Blocking' },
 ]
 
 interface CellData {
@@ -132,7 +133,7 @@ export class TilePalette {
   private buildTileSection(parent: HTMLElement, category: string, targetLayer: LayerName): FolderGroup[] {
     const folders: FolderGroup[] = []
     const folderNames = getFolders(category)
-    const allTiles = getTilesByCategory(category)
+    const allTiles = getTilesByCategory(category, false)
 
     // "Empty" tool — always first
     const toolsFolder = document.createElement('div')
@@ -387,7 +388,7 @@ export class TilePalette {
       ctx.font = `bold ${eff.arrow ? '22' : '11'}px monospace`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(eff.arrow || 'ICE', DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
+      ctx.fillText(eff.arrow || eff.label.toUpperCase(), DISPLAY_SIZE / 2, DISPLAY_SIZE / 2)
     }
   }
 

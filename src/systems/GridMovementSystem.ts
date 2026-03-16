@@ -16,6 +16,7 @@ export class GridMovementSystem {
   private tileEffects: Map<string, TileEffectData> = new Map()
   private lastDirection: Direction = 'down'
   private isSliding = false
+  private pushBlockCallback: ((blockTileX: number, blockTileY: number, dir: Direction) => boolean) | null = null
 
   constructor(
     scene: Phaser.Scene,
@@ -46,6 +47,14 @@ export class GridMovementSystem {
     for (const e of effects) {
       this.tileEffects.set(`${e.tileX},${e.tileY}`, e)
     }
+  }
+
+  setPushBlockCallback(cb: (blockTileX: number, blockTileY: number, dir: Direction) => boolean): void {
+    this.pushBlockCallback = cb
+  }
+
+  removeTileEffect(tileX: number, tileY: number): void {
+    this.tileEffects.delete(`${tileX},${tileY}`)
   }
 
   get moving(): boolean {
@@ -133,7 +142,24 @@ export class GridMovementSystem {
     const targetTileX = this.player.tileX + off.x
     const targetTileY = this.player.tileY + off.y
 
-    if (this.isTileBlocked(targetTileX, targetTileY)) {
+    const targetKey = `${targetTileX},${targetTileY}`
+    const isBlockedTile = this.blockedTiles.has(targetKey)
+    const targetEffect = this.tileEffects.get(targetKey)
+    const isHole = targetEffect?.effect === 'hole'
+
+    if (isBlockedTile && this.pushBlockCallback) {
+      // Target has something in blockedTiles — try pushing (may be a block or NPC)
+      const pushed = this.pushBlockCallback(targetTileX, targetTileY, dir)
+      if (!pushed) {
+        // Not a block, or push destination blocked
+        this.isSliding = false
+        this.isMoving = false
+        this.player.playIdle()
+        return
+      }
+      // Block was pushed — fall through to move player into the now-clear tile
+    } else if (isHole || this.isTileBlocked(targetTileX, targetTileY)) {
+      // Hole (no block on it) or wall/OOB
       this.isSliding = false
       this.isMoving = false
       this.player.playIdle()

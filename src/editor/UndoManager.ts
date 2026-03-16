@@ -1,5 +1,5 @@
 import type { EditorState } from './EditorState'
-import type { NPCData, StairData, TeleportData } from '@/data/types'
+import type { NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 interface Snapshot {
   mapWidth: number
@@ -12,6 +12,7 @@ interface Snapshot {
   npcs: NPCData[]
   stairs: StairData[]
   teleports: TeleportData[]
+  blocks: PushableBlockData[]
 }
 
 const MAX_HISTORY = 50
@@ -43,6 +44,7 @@ export class UndoManager {
       })),
       stairs: d.stairs.map(s => ({ ...s })),
       teleports: d.teleports.map(t => ({ ...t })),
+      blocks: d.blocks.map(b => ({ ...b })),
     }
   }
 
@@ -86,6 +88,7 @@ export class UndoManager {
       }))
       d.stairs = snap.stairs.map(s => ({ ...s }))
       d.teleports = snap.teleports.map(t => ({ ...t }))
+      d.blocks = snap.blocks.map(b => ({ ...b }))
     })
     this.state.deselectEntity() // emits
   }

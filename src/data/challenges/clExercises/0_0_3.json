@@ -1,0 +1,53 @@
+{
+  "id": "0_0_3",
+  "type": "fill_in_text",
+  "metadata": {
+    "difficulty": "beginner",
+    "tags": ["genese", "showcase", "fill-in-text"]
+  },
+  "title": {
+    "en": "GENESE - Fill In The Blanks",
+    "fr": "GENESE - Completer les trous"
+  },
+  "content": {
+    "question": [
+      {
+        "type": "text",
+        "value": {
+          "en": "This is a ***cl-fill-in-text*** exercise. Fill in the `{{}}` slots by clicking options. Complete the code to swap two variables!",
+          "fr": "Ceci est un exercice ***cl-fill-in-text***. Remplis les trous `{{}}` en cliquant sur les options. Complete le code pour echanger deux variables !"
+        }
+      },
+      {
+        "type": "infoCard",
+        "cardType": "info",
+        "expandable": true,
+        "initiallyExpanded": false,
+        "value": {
+          "title": {
+            "en": "Hint: Variable Swapping",
+            "fr": "Indice : Echange de variables"
+          },
+          "content": {
+            "en": "To swap two variables, you need a ***temporary*** variable to hold one value while you overwrite it.",
+            "fr": "Pour echanger deux variables, tu as besoin d'une variable ***temporaire*** pour garder une valeur pendant que tu la remplaces."
+          }
+        }
+      }
+    ],
+    "exercise": {
+      "language": "python",
+      "text": "a = 5\nb = 10\ntemp = {{}}\na = {{}}\nb = {{}}\nprint(a, b)",
+      "options": ["a", "b", "temp"],
+      "correctAnswers": {
+        "1": "a",
+        "2": "b",
+        "3": "temp"
+      }
+    },
+    "hint": {
+      "en": "First save 'a' in temp, then put 'b' in 'a', then put temp in 'b'.",
+      "fr": "D'abord sauvegarde 'a' dans temp, puis mets 'b' dans 'a', puis mets temp dans 'b'."
+    }
+  }
+}

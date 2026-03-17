@@ -1,0 +1,47 @@
+{
+  "id": "0_0_4",
+  "type": "matching_pairs",
+  "metadata": {
+    "difficulty": "beginner",
+    "tags": ["genese", "showcase", "matching-pairs"]
+  },
+  "title": {
+    "en": "GENESE - Matching Pairs",
+    "fr": "GENESE - Paires correspondantes"
+  },
+  "content": {
+    "question": [
+      {
+        "type": "text",
+        "value": {
+          "en": "This is a ***cl-matching-pairs*** exercise. Connect each Python expression on the left with its result on the right.",
+          "fr": "Ceci est un exercice ***cl-matching-pairs***. Relie chaque expression Python a gauche avec son resultat a droite."
+        }
+      }
+    ],
+    "exercise": {
+      "pairs": [
+        {
+          "id": "p1",
+          "term": { "type": "text", "value": "```2 ** 3```" },
+          "match": { "type": "text", "value": "8" }
+        },
+        {
+          "id": "p2",
+          "term": { "type": "text", "value": "```10 // 3```" },
+          "match": { "type": "text", "value": "3" }
+        },
+        {
+          "id": "p3",
+          "term": { "type": "text", "value": "```15 % 4```" },
+          "match": { "type": "text", "value": "3" }
+        },
+        {
+          "id": "p4",
+          "term": { "type": "text", "value": "```len(\"hello\")```" },
+          "match": { "type": "text", "value": "5" }
+        }
+      ]
+    }
+  }
+}

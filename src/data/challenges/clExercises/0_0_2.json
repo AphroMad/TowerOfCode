@@ -1,0 +1,72 @@
+{
+  "id": "0_0_2",
+  "type": "multiple_choice",
+  "metadata": {
+    "difficulty": "beginner",
+    "tags": ["genese", "showcase", "multiple-choice"]
+  },
+  "title": {
+    "en": "GENESE - Multiple Choice",
+    "fr": "GENESE - Choix Multiple"
+  },
+  "content": {
+    "question": [
+      {
+        "type": "text",
+        "value": {
+          "en": "This is a ***cl-multiple-choice*** exercise. The student reads content blocks, then picks one answer from a list.",
+          "fr": "Ceci est un exercice ***cl-multiple-choice***. L'etudiant lit les blocs de contenu, puis choisit une reponse dans une liste."
+        }
+      },
+      {
+        "type": "codeBlock",
+        "language": "python",
+        "value": "x = 10\ny = 3\nresult = x % y\nprint(result)"
+      },
+      {
+        "type": "text",
+        "value": {
+          "en": "What does the code above print?",
+          "fr": "Qu'affiche le code ci-dessus ?"
+        }
+      }
+    ],
+    "exercise": {
+      "options": [
+        {
+          "type": "text",
+          "value": {
+            "en": "3",
+            "fr": "3"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "en": "1",
+            "fr": "1"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "en": "10",
+            "fr": "10"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "en": "0",
+            "fr": "0"
+          }
+        }
+      ],
+      "correctAnswer": 1
+    },
+    "hint": {
+      "en": "The % operator returns the remainder of a division. 10 divided by 3 is 3 remainder 1.",
+      "fr": "L'operateur % retourne le reste d'une division. 10 divise par 3 fait 3 reste 1."
+    }
+  }
+}

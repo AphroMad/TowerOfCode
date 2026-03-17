@@ -1,0 +1,63 @@
+{
+  "id": "0_0_5",
+  "type": "challenge",
+  "metadata": {
+    "difficulty": "beginner",
+    "tags": ["genese", "showcase", "challenge", "code-editor"]
+  },
+  "title": {
+    "en": "GENESE - Code Challenge",
+    "fr": "GENESE - Defi de code"
+  },
+  "content": {
+    "question": [
+      {
+        "type": "text",
+        "value": {
+          "en": "This is a ***cl-challenge*** exercise — a full code editor with Run button, console, and a Show Solution option.\n\nWrite a function `greet(name)` that returns `\"Hello, <name>!\"`.",
+          "fr": "Ceci est un exercice ***cl-challenge*** — un editeur de code complet avec bouton Run, console, et une option Voir la Solution.\n\nEcris une fonction `greet(name)` qui retourne `\"Hello, <name>!\"`."
+        }
+      },
+      {
+        "type": "infoCard",
+        "cardType": "info",
+        "expandable": true,
+        "initiallyExpanded": false,
+        "value": {
+          "title": {
+            "en": "Reminder: f-strings",
+            "fr": "Rappel : f-strings"
+          },
+          "content": {
+            "en": "Use `f\"text {variable}\"` to insert variables into strings.\nExample: ```f\"Score: {points}\"```",
+            "fr": "Utilise `f\"texte {variable}\"` pour inserer des variables dans les chaines.\nExemple : ```f\"Score: {points}\"```"
+          }
+        }
+      }
+    ],
+    "exercise": {
+      "language": "python",
+      "value": {
+        "en": "# Write the greet function here\ndef greet(name):\n    pass\n\n# Test it\nprint(greet(\"World\"))\nprint(greet(\"Tower\"))",
+        "fr": "# Ecris la fonction greet ici\ndef greet(name):\n    pass\n\n# Teste-la\nprint(greet(\"World\"))\nprint(greet(\"Tower\"))"
+      }
+    },
+    "solution": [
+      {
+        "type": "text",
+        "value": {
+          "en": "Use an f-string to build the greeting message and return it:",
+          "fr": "Utilise un f-string pour construire le message de salutation et le retourner :"
+        }
+      },
+      {
+        "type": "codeBlock",
+        "language": "python",
+        "value": {
+          "en": "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"World\"))   # Hello, World!\nprint(greet(\"Tower\"))   # Hello, Tower!",
+          "fr": "def greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"World\"))   # Hello, World!\nprint(greet(\"Tower\"))   # Hello, Tower!"
+        }
+      }
+    ]
+  }
+}

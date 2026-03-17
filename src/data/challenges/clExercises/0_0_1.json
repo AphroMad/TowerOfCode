@@ -1,0 +1,105 @@
+{
+  "id": "0_0_1",
+  "type": "explanation",
+  "metadata": {
+    "difficulty": "beginner",
+    "tags": ["genese", "showcase", "all-blocks"]
+  },
+  "title": {
+    "en": "GENESE - All Content Blocks",
+    "fr": "GENESE - Tous les blocs de contenu"
+  },
+  "content": {
+    "question": [
+      {
+        "type": "text",
+        "value": {
+          "en": "This is a ***text block*** with **bold** and inline code like `print(\"hello world\")`. It supports markdown-like formatting for rich content display.\n\nInline code showcase: keywords `for i in range(10):` and `if x > 5:` and `def greet(name):` and `while True:` and `class Player:` and `return x + 1`.\nBuiltins: `len(my_list)` and `int(\"42\")` and `str(100)`.\nVariables & ops: `score = 42` and `x + y * 2`.\nStrings: `name = \"Alice\"` and `f\"Hello {name}\"`.\nComment: `x = 1 # set x`.\nMultiline: `print(\"line1\\nline2\")`.",
+          "fr": "Ceci est un ***bloc texte*** avec du **gras** et du code inline comme `print(\"hello world\")`. Il supporte le formatage markdown pour un affichage riche.\n\nDemo du code inline : mots-cles `for i in range(10):` et `if x > 5:` et `def greet(name):` et `while True:` et `class Player:` et `return x + 1`.\nBuiltins : `len(my_list)` et `int(\"42\")` et `str(100)`.\nVariables & ops : `score = 42` et `x + y * 2`.\nChaines : `name = \"Alice\"` et `f\"Hello {name}\"`.\nCommentaire : `x = 1 # set x`.\nMultiligne : `print(\"line1\\nline2\")`."
+        }
+      },
+      {
+        "type": "codeBlock",
+        "language": "python",
+        "value": {
+          "en": "# This is a READ-ONLY code block\nname = \"Tower of Code\"\nprint(f\"Welcome to {name}!\")",
+          "fr": "# Ceci est un bloc de code EN LECTURE SEULE\nnom = \"Tower of Code\"\nprint(f\"Bienvenue dans {nom} !\")"
+        }
+      },
+      {
+        "type": "text",
+        "value": {
+          "en": "Above was a ***read-only code block*** (codeBlock). Below is an ***editable code editor*** (codeEditorRun) — click Run to execute it!",
+          "fr": "Au-dessus, c'était un ***bloc de code en lecture seule*** (codeBlock). En dessous, un ***editeur de code editable*** (codeEditorRun) — clique sur Run pour l'executer !"
+        }
+      },
+      {
+        "type": "codeEditorRun",
+        "language": "python",
+        "value": "# Editable! Try changing the message\nprint(\"Hello from the GENESE lesson!\")\nprint(2 + 2)"
+      },
+      {
+        "type": "infoCard",
+        "cardType": "info",
+        "expandable": false,
+        "value": {
+          "title": {
+            "en": "Non-expandable Info Card",
+            "fr": "Carte info non-repliable"
+          },
+          "content": {
+            "en": "This info card is ***always visible*** and cannot be collapsed. Use it for important notes that the student must see. Supports `inline code` and **bold**.",
+            "fr": "Cette carte info est ***toujours visible*** et ne peut pas etre repliee. Utilise-la pour des notes importantes que l'etudiant doit voir. Supporte le `code inline` et le **gras**."
+          }
+        }
+      },
+      {
+        "type": "infoCard",
+        "cardType": "info",
+        "expandable": true,
+        "initiallyExpanded": true,
+        "value": {
+          "title": {
+            "en": "Expandable Card (open by default)",
+            "fr": "Carte repliable (ouverte par defaut)"
+          },
+          "content": {
+            "en": "This card starts ***expanded*** but can be collapsed by clicking the title. Good for supplementary info that's relevant but not critical.\n\nIt supports multiple lines and `code formatting`.",
+            "fr": "Cette carte commence ***depliee*** mais peut etre repliee en cliquant sur le titre. Utile pour des infos supplementaires pertinentes mais pas critiques.\n\nElle supporte plusieurs lignes et le `formatage de code`."
+          }
+        }
+      },
+      {
+        "type": "infoCard",
+        "cardType": "info",
+        "expandable": true,
+        "initiallyExpanded": false,
+        "value": {
+          "title": {
+            "en": "Expandable Card (collapsed by default)",
+            "fr": "Carte repliable (fermee par defaut)"
+          },
+          "content": {
+            "en": "This card starts ***collapsed*** — the student must click to reveal it. Perfect for hints, fun facts, or optional deep-dives.\n\nExample: ```print(\"hidden content!\")```",
+            "fr": "Cette carte commence ***fermee*** — l'etudiant doit cliquer pour la reveler. Parfait pour les indices, anecdotes, ou approfondissements optionnels.\n\nExemple : ```print(\"contenu cache !\")```"
+          }
+        }
+      },
+      {
+        "type": "image",
+        "value": "",
+        "caption": {
+          "en": "Image placeholder - this shows where an image would appear",
+          "fr": "Espace reserve pour image - ceci montre ou une image apparaitrait"
+        }
+      },
+      {
+        "type": "text",
+        "value": {
+          "en": "That's all the content block types! Press [ESC] to close this lesson.",
+          "fr": "Voila tous les types de blocs de contenu ! Appuie sur [ESC] pour fermer cette lecon."
+        }
+      }
+    ]
+  }
+}

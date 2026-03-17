@@ -52,11 +52,11 @@
 - [x] Editor support (place blocks, assign sprite, paint holes, undo/redo, mover, import/export)
 
 ### Heart / HP System
-- [ ] Player HP (e.g. 3 hearts, shown as HUD overlay)
-- [ ] Wrong challenge answer = lose a heart
-- [ ] Death → restart floor (respawn at playerStart, reset floor state)
-- [ ] Heart pickup collectible (restore 1 HP)
-- [ ] Visual feedback (screen flash on damage, heart animation)
+- [x] Player HP (e.g. 3 hearts, shown as HUD overlay)
+- [x] Wrong challenge answer = lose a heart
+- [x] Death → restart floor (respawn at playerStart, reset floor state)
+- [x] Heart pickup collectible (restore 1 HP)
+- [x] Visual feedback (screen flash on damage, heart animation)
 
 ### NPC Speech Indicators
 - [ ] Floating "!" icon above NPCs with uncompleted challenges

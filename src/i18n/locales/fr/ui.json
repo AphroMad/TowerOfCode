@@ -52,5 +52,8 @@
   "challenge_hint_fill_in": "Clique un trou, puis une option. Clique un trou rempli pour le vider. [ESC] fermer",
   "challenge_hint_matching": "Clique un terme, puis une correspondance. Clavier : [FLÈCHES] + [ENTRÉE]  [ESC] fermer",
   "challenge_hint_or_esc": "ou appuie sur ESC",
-  "challenge_attempt": "Tentative"
+  "challenge_attempt": "Tentative",
+
+  "death_message": "Vous avez perdu !",
+  "death_restart": "Redémarrage..."
 }

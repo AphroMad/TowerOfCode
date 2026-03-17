@@ -1,9 +1,9 @@
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
-import type { Direction, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
+import type { Direction, HeartPickupData, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 export type Tool = 'brush' | 'eraser' | 'entity' | 'mover'
 export type LayerName = 'ground' | 'walls' | 'entities' | 'effects'
-export type EntityType = 'player' | 'npc' | 'stair' | 'teleport' | 'block'
+export type EntityType = 'player' | 'npc' | 'stair' | 'teleport' | 'block' | 'heart'
 
 export interface PlayerSpawn {
   tileX: number
@@ -37,6 +37,8 @@ export interface EditorData {
   stairs: StairData[]
   teleports: TeleportData[]
   blocks: PushableBlockData[]
+  hearts: HeartPickupData[]
+  startingHp: number  // 0 = infinite
 
   selectedEntityType: EntityType | null
   selectedEntityIndex: number // -1 = none
@@ -121,6 +123,8 @@ export class EditorState {
       stairs: [],
       teleports: [],
       blocks: [],
+      hearts: [],
+      startingHp: 0,
       selectedEntityType: null,
       selectedEntityIndex: -1,
       placingEntity: null,
@@ -201,6 +205,11 @@ export class EditorState {
         return { type: 'block', index: i }
       }
     }
+    for (let i = 0; i < this._data.hearts.length; i++) {
+      if (this._data.hearts[i].tileX === x && this._data.hearts[i].tileY === y) {
+        return { type: 'heart', index: i }
+      }
+    }
     return null
   }
 
@@ -255,6 +264,7 @@ export class EditorState {
     if (d.stairs.some(s => s.tileX >= newW || s.tileY >= newH)) return true
     if (d.teleports.some(t => t.tileX >= newW || t.tileY >= newH)) return true
     if (d.blocks.some(b => b.tileX >= newW || b.tileY >= newH)) return true
+    if (d.hearts.some(h => h.tileX >= newW || h.tileY >= newH)) return true
 
     return false
   }
@@ -294,6 +304,7 @@ export class EditorState {
     d.stairs = d.stairs.filter(s => s.tileX < newW && s.tileY < newH)
     d.teleports = d.teleports.filter(t => t.tileX < newW && t.tileY < newH)
     d.blocks = d.blocks.filter(b => b.tileX < newW && b.tileY < newH)
+    d.hearts = d.hearts.filter(h => h.tileX < newW && h.tileY < newH)
 
     // Clamp patrol paths
     for (const npc of d.npcs) {

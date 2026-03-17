@@ -47,6 +47,7 @@ export class EntityPanel {
     addBtn('+ Warp', 'stair')
     addBtn('+ Teleport', 'teleport')
     addBtn('+ Block', 'block')
+    addBtn('+ Heart', 'heart')
     this.wrapper.appendChild(btnRow)
 
     // Properties form
@@ -313,6 +314,27 @@ export class EntityPanel {
       this.addDeleteButton(() => {
         this.undo.save()
         d.blocks.splice(d.selectedEntityIndex, 1)
+        this.state.deselectEntity()
+      })
+    } else if (d.selectedEntityType === 'heart') {
+      const heart = d.hearts[d.selectedEntityIndex]
+      if (!heart) return
+      title.textContent = 'Heart Pickup'
+      this.formContainer.appendChild(title)
+
+      this.addInfo(`Position: (${heart.tileX}, ${heart.tileY})`)
+
+      this.addInput('Restore', String(heart.restoreAmount ?? 1), (v) => {
+        const n = parseInt(v)
+        if (!isNaN(n) && n > 0) {
+          heart.restoreAmount = n
+          this.state.emit()
+        }
+      })
+
+      this.addDeleteButton(() => {
+        this.undo.save()
+        d.hearts.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })
     }

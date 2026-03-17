@@ -32,6 +32,7 @@ export class NpcBehaviorSystem {
   private states: NpcState[] = []
   private mapWidth: number
   private mapHeight: number
+  private frozen = false
   private pendingResumeHandlers: Array<() => void> = []
 
   constructor(
@@ -70,6 +71,7 @@ export class NpcBehaviorSystem {
   }
 
   update(delta: number): void {
+    if (this.frozen) return
     const save = SaveManager.getInstance()
     for (const state of this.states) {
       if (state.detecting) continue
@@ -114,6 +116,9 @@ export class NpcBehaviorSystem {
         return
       }
 
+      // Other NPCs / blocks obstruct line of sight
+      if (this.grid.isBlocked(tx, ty)) break
+
       tx += off.dx
       ty += off.dy
     }
@@ -121,6 +126,7 @@ export class NpcBehaviorSystem {
 
   private async triggerDetection(state: NpcState): Promise<void> {
     state.detecting = true
+    this.frozen = true  // freeze all NPC behavior while detection plays out
     const { npc } = state
 
     // Freeze input, let current move finish smoothly
@@ -172,6 +178,7 @@ export class NpcBehaviorSystem {
     // Unfreeze after dialog closes — NPC won't auto-detect again
     const onResume = () => {
       this.grid.unfreeze()
+      this.frozen = false  // resume all NPC behavior
       state.detecting = false
       state.hasDetected = true
 
@@ -212,6 +219,11 @@ export class NpcBehaviorSystem {
 
       await npc.walkToTile(this.scene, nextX, nextY)
     }
+  }
+
+  /** Freeze all NPC behavior (detection, lookout, patrol) */
+  freeze(): void {
+    this.frozen = true
   }
 
   /** Mark an NPC as already detected (prevents re-detection after manual interaction) */
@@ -261,7 +273,7 @@ export class NpcBehaviorSystem {
     const maxSteps = this.mapWidth + this.mapHeight
     for (let step = 0; step < maxSteps; step++) {
       if (npc.data.tileX === targetX && npc.data.tileY === targetY) break
-      if (state.detecting) break
+      if (state.detecting || this.frozen) break
 
       const dx = targetX - npc.data.tileX
       const dy = targetY - npc.data.tileY

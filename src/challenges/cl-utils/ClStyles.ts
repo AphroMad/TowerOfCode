@@ -521,6 +521,29 @@ export function injectClStyles(): void {
       margin-bottom: 10px;
       white-space: pre-wrap;
     }
+
+    @keyframes challenge-heart-shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(2px); }
+    }
+
+    @keyframes challenge-hit {
+      0% { transform: translateX(0); filter: brightness(1); }
+      10% { transform: translateX(-6px); filter: brightness(1.5) saturate(2) hue-rotate(-10deg); }
+      20% { transform: translateX(5px); }
+      30% { transform: translateX(-4px); filter: brightness(1.2); }
+      40% { transform: translateX(3px); }
+      50% { transform: translateX(-2px); filter: brightness(1); }
+      100% { transform: translateX(0); filter: brightness(1); }
+    }
+
+    .cl-panel.hit {
+      animation: challenge-hit 0.4s ease-out;
+      box-shadow: 0 0 30px rgba(255, 50, 50, 0.5), inset 0 0 20px rgba(255, 0, 0, 0.15) !important;
+    }
   `
   document.head.appendChild(style)
 }

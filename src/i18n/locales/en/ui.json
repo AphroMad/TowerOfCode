@@ -52,5 +52,8 @@
   "challenge_hint_fill_in": "Click a slot, then click an option. Click a filled slot to remove it. [ESC] close",
   "challenge_hint_matching": "Click a term, then click a match. Keyboard: [ARROWS] + [ENTER]  [ESC] close",
   "challenge_hint_or_esc": "or press ESC",
-  "challenge_attempt": "Attempt"
+  "challenge_attempt": "Attempt",
+
+  "death_message": "You lost!",
+  "death_restart": "Restarting..."
 }

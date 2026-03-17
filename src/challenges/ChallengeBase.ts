@@ -8,6 +8,7 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
 {
   protected readonly renderer = new ClDomRenderer()
   protected onComplete!: (success: boolean) => void
+  protected scene!: Phaser.Scene
   private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null
   private pendingTimers: ReturnType<typeof setTimeout>[] = []
   private attempts = 0
@@ -19,6 +20,7 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
     onComplete: (success: boolean) => void,
   ): void {
     this.onComplete = onComplete
+    this.scene = _scene
     this.attempts = 0
     const panel = this.renderer.createOverlay(_scene)
 
@@ -60,6 +62,11 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
       this.attemptEl.style.display = ''
       this.attemptEl.textContent = `${this.t('challenge_attempt')} ${this.attempts}`
     }
+  }
+
+  /** Notify the scene that the player gave a wrong answer (for HP damage) */
+  protected notifyWrongAnswer(): void {
+    this.scene.events.emit('challenge-wrong-answer')
   }
 
   protected addTimer(callback: () => void, ms: number): ReturnType<typeof setTimeout> {

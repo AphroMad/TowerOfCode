@@ -160,6 +160,7 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     } else {
       // Red stays until user clicks another option or navigates with keyboard
       this.wrongShown = true
+      this.notifyWrongAnswer()
       this.hintBar.textContent = this.t('challenge_hint_enter_retry')
     }
   }

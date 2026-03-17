@@ -163,6 +163,8 @@ export class TestMode {
       stairs: d.stairs.map(s => ({ ...s })),
       teleports: d.teleports.map(t => ({ ...t })),
       blocks: d.blocks.map(b => ({ ...b })),
+      hearts: d.hearts.map(h => ({ ...h })),
+      startingHp: d.startingHp || undefined,
     }
   }
 

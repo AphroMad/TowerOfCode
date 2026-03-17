@@ -88,6 +88,38 @@ export class Toolbar {
     this.makeSizeInput(sizeGroup, 'W:', 'mapWidth', 'Map width in tiles')
     this.makeSizeInput(sizeGroup, 'H:', 'mapHeight', 'Map height in tiles')
 
+    // HP input
+    const hpLbl = document.createElement('span')
+    hpLbl.textContent = 'HP:'
+    hpLbl.style.color = '#888'
+    hpLbl.style.fontSize = '12px'
+    hpLbl.title = 'Starting hearts (0 = infinite)'
+    hpLbl.style.marginLeft = '8px'
+    sizeGroup.appendChild(hpLbl)
+
+    const hpInput = document.createElement('input')
+    hpInput.type = 'number'
+    hpInput.min = '0'
+    hpInput.max = '20'
+    hpInput.value = String(this.state.snapshot.startingHp)
+    hpInput.className = 'toolbar-input'
+    hpInput.style.width = '42px'
+    hpInput.title = 'Starting hearts (0 = infinite)'
+    hpInput.addEventListener('change', () => {
+      const val = parseInt(hpInput.value)
+      if (isNaN(val) || val < 0 || val > 20) {
+        hpInput.value = String(this.state.snapshot.startingHp)
+        return
+      }
+      this.state.mutate(d => { d.startingHp = val })
+    })
+    this.state.onChange(() => {
+      if (document.activeElement !== hpInput) {
+        hpInput.value = String(this.state.snapshot.startingHp)
+      }
+    })
+    sizeGroup.appendChild(hpInput)
+
     this.makeSep(el)
 
     // New floor / Clear

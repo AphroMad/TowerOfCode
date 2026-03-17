@@ -12,6 +12,8 @@ import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, TILE_SIZE, PLAYER_MOVE_SPEED } from 
 import type { ChallengeConfig, Direction, FloorData } from '@/data/types'
 import { buildTiledMapJson } from '@/utils/buildTiledMapJson'
 import { AnimatedTileSystem } from '@/systems/AnimatedTileSystem'
+import { HpManager } from '@/systems/HpManager'
+import { HeartHud } from '@/ui/HeartHud'
 import { tileToPixel } from '@/utils/helpers'
 
 export class GameScene extends Phaser.Scene {
@@ -23,10 +25,16 @@ export class GameScene extends Phaser.Scene {
   private wallLayer!: Phaser.Tilemaps.TilemapLayer
   private animatedTiles?: AnimatedTileSystem
   private blockSprites: Map<string, Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image> = new Map()
+  public hpManager!: HpManager
+  private heartHud?: HeartHud
+  private heartSprites: Map<string, { sprite: Phaser.GameObjects.Text; restoreAmount: number }> = new Map()
   private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
   private floor!: FloorData
+  private pristineFloor!: string  // JSON snapshot for clean restart
+  private challengeStateOnEntry: string[] = []
   private isTransitioning = false
+  private isDead = false
   private lastTeleportId: string | null = null // prevent re-trigger until player steps off
 
   constructor() {
@@ -35,16 +43,24 @@ export class GameScene extends Phaser.Scene {
 
   create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; fromFloorId?: string; floorData?: FloorData }): void {
     this.isTransitioning = false
+    this.isDead = false
     this.lastTeleportId = null
 
     // Resolve floor: from direct data (test mode), then registry, then save, fallback
+    // Deep-clone to avoid mutating the source (blocks/hearts get modified at runtime)
     const save = SaveManager.getInstance()
     const floorId = data?.floorId ?? save.getData().currentFloor
-    const floor = data?.floorData ?? getFloorById(floorId) ?? getFloorById('floor-01')!
+    const rawFloor = data?.floorData ?? getFloorById(floorId) ?? getFloorById('floor-01')!
+    // Keep a pristine JSON snapshot for clean restarts (before any runtime mutations)
+    this.pristineFloor = JSON.stringify(rawFloor)
+    const floor: FloorData = JSON.parse(this.pristineFloor)
     this.floor = floor
 
     // Persist current floor (skip in test mode)
     if (!data?.floorData) save.setCurrentFloor(floor.id)
+
+    // Snapshot challenge state so we can restore on death
+    this.challengeStateOnEntry = [...save.getCompletedChallenges()]
 
     // Build Tiled JSON from floor tile data and inject into cache
     const mapW = floor.width ?? MAP_WIDTH_TILES
@@ -111,6 +127,27 @@ export class GameScene extends Phaser.Scene {
     }
     this.gridMovement.setPushBlockCallback((bx, by, dir) => this.tryPushBlock(bx, by, dir))
 
+    // HP system
+    this.hpManager = new HpManager(floor.startingHp)
+    this.heartHud = new HeartHud(this, this.hpManager.maxHp, this.hpManager.isInfinite)
+    this.heartHud.update(this.hpManager.hp)
+
+    // Heart pickups
+    this.heartSprites.clear()
+    if (floor.hearts?.length) {
+      for (const h of floor.hearts) {
+        this.createHeartPickup(h.tileX, h.tileY, h.restoreAmount ?? 1)
+      }
+    }
+
+    // Sync HUD when returning from challenge (HP may have changed)
+    this.events.on('challenge-closed', () => {
+      this.heartHud?.update(this.hpManager.hp)
+      if (this.hpManager.isDead) {
+        this.handleDeath()
+      }
+    })
+
     // Behavior system (detect, lookout, patrol)
     this.behaviorSystem = new NpcBehaviorSystem(this, this.npcs, this.gridMovement, this.player)
 
@@ -131,6 +168,8 @@ export class GameScene extends Phaser.Scene {
     // briefly block interactions, and re-check gatekeepers
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys()
+      // Don't re-enable anything if player is dead (death handler takes over)
+      if (this.hpManager.isDead) return
       this.interaction.setEnabled(false)
       this.time.delayedCall(300, () => this.interaction.setEnabled(true))
       this.updateGatekeepers()
@@ -180,6 +219,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // Freeze everything on death
+    if (this.isDead) return
+
     if (this.gridMovement) {
       this.gridMovement.update()
     }
@@ -202,8 +244,9 @@ export class GameScene extends Phaser.Scene {
       sprite.setDepth(sprite.y)
     }
 
-    // Stair trigger: check when player stops on a stair tile
+    // Stair trigger + heart pickup: check when player stops on a tile
     if (!this.isTransitioning && !this.gridMovement.moving) {
+      this.checkHeartPickup()
       this.checkStairTrigger()
     }
   }
@@ -446,6 +489,107 @@ export class GameScene extends Phaser.Scene {
       npcName: npc.data.name,
       challengeConfig,
       challengeCompleted,
+    })
+  }
+
+  // ── Heart Pickups ──
+
+  private createHeartPickup(tileX: number, tileY: number, restoreAmount: number): void {
+    const px = tileToPixel(tileX)
+    const py = tileToPixel(tileY)
+    const sprite = this.add.text(px, py, '\u2665', {
+      fontSize: '24px',
+      color: '#ff4466',
+      fontFamily: 'monospace',
+    })
+      .setOrigin(0.5)
+      .setDepth(py)
+
+    // Gentle bob animation
+    this.tweens.add({
+      targets: sprite,
+      y: py - 4,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.inOut',
+    })
+
+    this.heartSprites.set(`${tileX},${tileY}`, { sprite, restoreAmount })
+  }
+
+  private checkHeartPickup(): void {
+    const tile = this.gridMovement.getPlayerTile()
+    const key = `${tile.x},${tile.y}`
+    const entry = this.heartSprites.get(key)
+    if (!entry) return
+
+    const healed = this.hpManager.heal(entry.restoreAmount)
+    if (!healed && !this.hpManager.isInfinite) return // already full
+
+    // Pickup animation: scale up + fade out
+    this.heartSprites.delete(key)
+    this.tweens.add({
+      targets: entry.sprite,
+      scaleX: 2,
+      scaleY: 2,
+      alpha: 0,
+      y: entry.sprite.y - 20,
+      duration: 300,
+      ease: 'Power2',
+      onComplete: () => entry.sprite.destroy(),
+    })
+
+    if (healed) {
+      this.heartHud?.update(this.hpManager.hp)
+      this.heartHud?.playHealAnimation(this.hpManager.hp)
+    }
+  }
+
+  // ── Damage & Death ──
+
+  private handleDeath(): void {
+    this.isDead = true
+    this.gridMovement.freeze()
+    this.interaction.setEnabled(false)
+    this.behaviorSystem.freeze()
+
+    const i18n = I18nManager.getInstance()
+
+    // DOM overlay so it renders above everything (including challenge DOM elements)
+    const overlay = document.createElement('div')
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:10010;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'background:rgba(0,0,0,0);pointer-events:none;font-family:monospace;transition:background 0.5s;'
+    document.body.appendChild(overlay)
+
+    const title = document.createElement('div')
+    title.style.cssText =
+      'font-size:28px;color:#ff4444;opacity:0;transform:scale(0.8);transition:opacity 0.4s,transform 0.4s;'
+    title.textContent = i18n.t('death_message')
+    overlay.appendChild(title)
+
+    const subtitle = document.createElement('div')
+    subtitle.style.cssText =
+      'font-size:14px;color:#888;margin-top:10px;opacity:0;transition:opacity 0.6s 0.3s;'
+    subtitle.textContent = i18n.t('death_restart')
+    overlay.appendChild(subtitle)
+
+    // Animate in
+    requestAnimationFrame(() => {
+      overlay.style.background = 'rgba(0,0,0,0.75)'
+      title.style.opacity = '1'
+      title.style.transform = 'scale(1)'
+      subtitle.style.opacity = '1'
+    })
+
+    // Restart floor after delay — restore challenge state so NPCs re-trigger
+    this.time.delayedCall(2000, () => {
+      overlay.remove()
+      SaveManager.getInstance().setCompletedChallenges(this.challengeStateOnEntry)
+      // Use pristine snapshot so NPCs/blocks/hearts are in original positions
+      const cleanFloor: FloorData = JSON.parse(this.pristineFloor)
+      this.scene.start('GameScene', { floorId: cleanFloor.id, floorData: cleanFloor })
     })
   }
 }

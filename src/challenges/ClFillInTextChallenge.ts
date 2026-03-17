@@ -270,6 +270,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
       fail.className = 'cl-failure'
       fail.textContent = this.t('challenge_feedback_not_quite')
       this.feedbackArea.appendChild(fail)
+      this.notifyWrongAnswer()
 
       // Feedback stays until user modifies a slot
     }

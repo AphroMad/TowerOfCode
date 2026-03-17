@@ -57,7 +57,7 @@ export class EditorCanvas {
   private moverWalls: string[] = []        // walls
   private moverCollision: boolean[] = []   // wallsCollision
   private moverEffects: number[] = []      // effects
-  private moverEntities: { type: 'player' | 'npc' | 'stair' | 'teleport' | 'block'; localX: number; localY: number }[] = []
+  private moverEntities: { type: 'player' | 'npc' | 'stair' | 'teleport' | 'block' | 'heart'; localX: number; localY: number }[] = []
   private moverDragStart: { x: number; y: number } | null = null
   private moverOffset = { dx: 0, dy: 0 }
 
@@ -152,6 +152,8 @@ export class EditorCanvas {
               md.teleports.splice(entity.index, 1)
             } else if (entity.type === 'block') {
               md.blocks.splice(entity.index, 1)
+            } else if (entity.type === 'heart') {
+              md.hearts.splice(entity.index, 1)
             }
           })
           this.state.deselectEntity()
@@ -228,6 +230,11 @@ export class EditorCanvas {
             md.blocks.push({ tileX: tile.x, tileY: tile.y })
           })
           this.state.selectEntity('block', this.state.snapshot.blocks.length - 1)
+        } else if (d.placingEntity === 'heart') {
+          this.state.mutateQuiet(md => {
+            md.hearts.push({ tileX: tile.x, tileY: tile.y })
+          })
+          this.state.selectEntity('heart', this.state.snapshot.hearts.length - 1)
         }
         this.state.mutate(md => { md.placingEntity = null })
         this.undo.save()
@@ -388,6 +395,11 @@ export class EditorCanvas {
             this.moverEntities.push({ type: 'block', localX: block.tileX - x1, localY: block.tileY - y1 })
           }
         }
+        for (const heart of d2.hearts) {
+          if (heart.tileX >= x1 && heart.tileX <= x2 && heart.tileY >= y1 && heart.tileY <= y2) {
+            this.moverEntities.push({ type: 'heart', localX: heart.tileX - x1, localY: heart.tileY - y1 })
+          }
+        }
 
         const hasContent = this.moverTiles.some(t => t !== '')
           || this.moverWalls.some(t => t !== '')
@@ -485,6 +497,12 @@ export class EditorCanvas {
                 block.tileX = newX
                 block.tileY = newY
               }
+            } else if (ent.type === 'heart') {
+              const heart = d.hearts.find(h => h.tileX === r.x + ent.localX && h.tileY === r.y + ent.localY)
+              if (heart) {
+                heart.tileX = newX
+                heart.tileY = newY
+              }
             }
           }
         })
@@ -535,6 +553,11 @@ export class EditorCanvas {
         for (const block of snap.blocks) {
           if (block.tileX >= nr.x && block.tileX < nr.x + nr.w && block.tileY >= nr.y && block.tileY < nr.y + nr.h) {
             this.moverEntities.push({ type: 'block', localX: block.tileX - nr.x, localY: block.tileY - nr.y })
+          }
+        }
+        for (const heart of snap.hearts) {
+          if (heart.tileX >= nr.x && heart.tileX < nr.x + nr.w && heart.tileY >= nr.y && heart.tileY < nr.y + nr.h) {
+            this.moverEntities.push({ type: 'heart', localX: heart.tileX - nr.x, localY: heart.tileY - nr.y })
           }
         }
         this.moverPhase = 'selected'
@@ -971,6 +994,38 @@ export class EditorCanvas {
       } else {
         ctx.fillText('B', x + s / 2, y + s / 2)
       }
+    }
+
+    // Heart pickups — red circle with ♥
+    const COL_HEART = '#ff4466'
+    const COL_HEART_SEL = '#ff6688'
+    for (let i = 0; i < d.hearts.length; i++) {
+      const heart = d.hearts[i]
+      const x = heart.tileX * s
+      const y = heart.tileY * s
+      const selected = d.selectedEntityType === 'heart' && d.selectedEntityIndex === i
+
+      ctx.globalAlpha = ENTITY_ALPHA
+      ctx.fillStyle = selected ? COL_HEART_SEL : COL_HEART
+      const cx = x + s / 2
+      const cy = y + s / 2
+      const r = (s - pad * 2) / 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
+
+      ctx.strokeStyle = selected ? COL_SELECTION : COL_HEART
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold ${Math.round(s * FONT_MD)}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('♥', cx, cy)
     }
 
     // Sight line for selected NPC with detect/lookout/patrol behavior

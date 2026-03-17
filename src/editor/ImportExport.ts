@@ -1,6 +1,6 @@
 import type { EditorState } from './EditorState'
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
-import type { Direction, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
+import type { Direction, HeartPickupData, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 const AUTOSAVE_KEY = 'editor_autosave'
 const AUTOSAVE_DEBOUNCE = 1000
@@ -44,6 +44,8 @@ export class ImportExport {
       stairs: d.stairs,
       teleports: d.teleports,
       blocks: d.blocks,
+      hearts: d.hearts,
+      startingHp: d.startingHp,
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
   }
@@ -74,6 +76,8 @@ export class ImportExport {
         stairs: data.stairs || [],
         teleports: data.teleports || [],
         blocks: data.blocks || [],
+        hearts: data.hearts || [],
+        startingHp: data.startingHp || 0,
       })
       return true
     } catch {
@@ -161,6 +165,12 @@ export class ImportExport {
       .join(',\n')
 
     // Build tileEffects from effectsLayer
+    const heartStr = d.hearts.map(h => {
+      const parts = [`tileX: ${h.tileX}`, `tileY: ${h.tileY}`]
+      if (h.restoreAmount && h.restoreAmount !== 1) parts.push(`restoreAmount: ${h.restoreAmount}`)
+      return `    { ${parts.join(', ')} }`
+    }).join(',\n')
+
     const blockStr = d.blocks.map(b => {
       const parts = [`tileX: ${b.tileX}`, `tileY: ${b.tileY}`]
       if (b.spriteKey) parts.push(`spriteKey: '${b.spriteKey}'`)
@@ -230,7 +240,7 @@ ${required}
   ],
 ${tileEffectsBlock}${noCollisionBlock}  stairs: [
 ${stairStr}
-  ],${d.teleports.length ? `\n  teleports: [\n${teleportStr}\n  ],` : ''}${d.blocks.length ? `\n  blocks: [\n${blockStr}\n  ],` : ''}
+  ],${d.teleports.length ? `\n  teleports: [\n${teleportStr}\n  ],` : ''}${d.blocks.length ? `\n  blocks: [\n${blockStr}\n  ],` : ''}${d.hearts.length ? `\n  hearts: [\n${heartStr}\n  ],` : ''}${d.startingHp > 0 ? `\n  startingHp: ${d.startingHp},` : ''}
 }
 `
   }
@@ -415,6 +425,28 @@ ${stairStr}
         }
       }
 
+      // Parse hearts
+      const hearts: HeartPickupData[] = []
+      const heartsBlockMatch = text.match(/hearts:\s*\[([\s\S]*?)\]\s*,/)
+      if (heartsBlockMatch) {
+        const hRegex = /\{[^}]*tileX:\s*(\d+)[^}]*tileY:\s*(\d+)[^}]*\}/g
+        let hm
+        while ((hm = hRegex.exec(heartsBlockMatch[1])) !== null) {
+          const hx = parseInt(hm[1])
+          const hy = parseInt(hm[2])
+          if (hx >= 0 && hx < mW && hy >= 0 && hy < mH) {
+            const entry: HeartPickupData = { tileX: hx, tileY: hy }
+            const raMatch = hm[0].match(/restoreAmount:\s*(\d+)/)
+            if (raMatch) entry.restoreAmount = parseInt(raMatch[1])
+            hearts.push(entry)
+          }
+        }
+      }
+
+      // Parse startingHp
+      const startingHpMatch = text.match(/startingHp:\s*(\d+)/)
+      const startingHp = startingHpMatch ? parseInt(startingHpMatch[1]) : 0
+
       this.state.loadState({
         floorId: idMatch?.[1] || this.state.snapshot.floorId,
         floorName: nameMatch?.[1] || this.state.snapshot.floorName,
@@ -432,6 +464,8 @@ ${stairStr}
         stairs,
         teleports,
         blocks,
+        hearts,
+        startingHp,
         effectsLayer,
       })
       return true

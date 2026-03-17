@@ -293,6 +293,7 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
       }
     } else {
       // Flash red then remove just this connection, clear selection
+      this.notifyWrongAnswer()
       this.termEls[termIdx].classList.add('incorrect')
       this.matchEls[matchDisplayIdx].classList.add('incorrect')
       const line = this.svgEl.querySelector(`line[data-term="${termIdx}"]`)

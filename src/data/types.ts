@@ -158,6 +158,14 @@ export interface PushableBlockData {
   spriteKey?: string  // object tile key (e.g. 'objects/rock') — fallback to brown box
 }
 
+// --- Heart Pickups ---
+
+export interface HeartPickupData {
+  tileX: number
+  tileY: number
+  restoreAmount?: number  // defaults to 1
+}
+
 // --- Floor & Save ---
 
 export interface FloorData {
@@ -175,6 +183,8 @@ export interface FloorData {
   teleports?: TeleportData[]
   tileEffects?: TileEffectData[]
   blocks?: PushableBlockData[]
+  startingHp?: number          // 0 or undefined = infinite (no HP loss)
+  hearts?: HeartPickupData[]
 }
 
 export interface SaveData {

@@ -10,6 +10,7 @@ export class NPC {
   readonly data: NPCData
   readonly animPrefix: string
   facing: Direction
+  private bubble?: Phaser.GameObjects.Container
 
   constructor(scene: Phaser.Scene, npcData: NPCData) {
     this.data = npcData
@@ -58,6 +59,113 @@ export class NPC {
           frameRate: 1,
         })
       }
+    })
+  }
+
+  /** Show a speech bubble above this NPC with the given text ("!" or "...") */
+  showBubble(scene: Phaser.Scene, text: '!' | '...', animate = true): void {
+    this.hideBubble()
+
+    const isExclaim = text === '!'
+    const fontSize = isExclaim ? 16 : 12
+    const padX = isExclaim ? 8 : 6
+    const padY = isExclaim ? 4 : 3
+    const tailH = 5
+
+    // High-res text so it's crisp on retina / zoomed cameras
+    const res = Math.max(2, window.devicePixelRatio)
+    const label = scene.add.text(0, 0, text, {
+      fontSize: `${fontSize}px`,
+      color: isExclaim ? '#ff3333' : '#444444',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      resolution: res,
+    }).setOrigin(0.5)
+
+    const bw = label.width + padX * 2
+    const bh = label.height + padY * 2
+    const radius = 4
+
+    // Bubble + tail as one continuous shape
+    const gfx = scene.add.graphics()
+    const l = -bw / 2, r = bw / 2, t = -bh / 2, b = bh / 2
+    const tw = 4 // tail half-width
+
+    // Fill
+    gfx.fillStyle(0xffffff, 1)
+    gfx.beginPath()
+    gfx.moveTo(l + radius, t)
+    gfx.lineTo(r - radius, t)
+    gfx.arc(r - radius, t + radius, radius, -Math.PI / 2, 0)
+    gfx.lineTo(r, b - radius)
+    gfx.arc(r - radius, b - radius, radius, 0, Math.PI / 2)
+    gfx.lineTo(tw, b)
+    gfx.lineTo(0, b + tailH)
+    gfx.lineTo(-tw, b)
+    gfx.lineTo(l + radius, b)
+    gfx.arc(l + radius, b - radius, radius, Math.PI / 2, Math.PI)
+    gfx.lineTo(l, t + radius)
+    gfx.arc(l + radius, t + radius, radius, Math.PI, -Math.PI / 2)
+    gfx.closePath()
+    gfx.fillPath()
+
+    // Stroke (same path)
+    gfx.lineStyle(1.5, 0x333333, 1)
+    gfx.beginPath()
+    gfx.moveTo(l + radius, t)
+    gfx.lineTo(r - radius, t)
+    gfx.arc(r - radius, t + radius, radius, -Math.PI / 2, 0)
+    gfx.lineTo(r, b - radius)
+    gfx.arc(r - radius, b - radius, radius, 0, Math.PI / 2)
+    gfx.lineTo(tw, b)
+    gfx.lineTo(0, b + tailH)
+    gfx.lineTo(-tw, b)
+    gfx.lineTo(l + radius, b)
+    gfx.arc(l + radius, b - radius, radius, Math.PI / 2, Math.PI)
+    gfx.lineTo(l, t + radius)
+    gfx.arc(l + radius, t + radius, radius, Math.PI, -Math.PI / 2)
+    gfx.closePath()
+    gfx.strokePath()
+
+    const offsetY = -(bh / 2 + tailH + 14)
+    this.bubble = scene.add.container(this.sprite.x, this.sprite.y + offsetY, [gfx, label])
+    this.bubble.setDepth(99999)
+
+    if (animate) {
+      // Pop-in animation
+      this.bubble.setScale(0)
+      scene.tweens.add({
+        targets: this.bubble,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 150,
+        ease: 'Back.easeOut',
+      })
+    }
+  }
+
+  /** Remove the speech bubble */
+  hideBubble(): void {
+    if (!this.bubble) return
+    this.bubble.destroy()
+    this.bubble = undefined
+  }
+
+  /** Animate the bubble away, then destroy it. Returns a promise. */
+  popBubble(scene: Phaser.Scene): Promise<void> {
+    if (!this.bubble) return Promise.resolve()
+    return new Promise(resolve => {
+      scene.tweens.add({
+        targets: this.bubble,
+        scaleX: 0,
+        scaleY: 0,
+        duration: 120,
+        ease: 'Back.easeIn',
+        onComplete: () => {
+          this.hideBubble()
+          resolve()
+        },
+      })
     })
   }
 

@@ -138,26 +138,14 @@ export class NpcBehaviorSystem {
     this.player.faceToward(npc.data.tileX, npc.data.tileY)
     npc.facePlayer(playerTile.x, playerTile.y)
 
-    // Show "!" exclamation mark above NPC
-    const exclamation = this.scene.add.text(
-      npc.sprite.x,
-      npc.sprite.y - 28,
-      '!',
-      {
-        fontSize: '22px',
-        color: '#ff4444',
-        fontFamily: 'monospace',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }
-    ).setOrigin(0.5).setDepth(999)
+    // Show "!" speech bubble above NPC
+    npc.showBubble(this.scene, '!')
 
     // Brief pause so the player sees the "!"
-    await this.delay(400)
+    await this.delay(500)
 
-    // Remove exclamation
-    exclamation.destroy()
+    // Pop the bubble away before walking
+    await npc.popBubble(this.scene)
 
     // Unblock original tile
     this.grid.unblockTile(npc.data.tileX, npc.data.tileY)

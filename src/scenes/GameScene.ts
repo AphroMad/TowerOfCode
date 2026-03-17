@@ -36,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private isTransitioning = false
   private isDead = false
   private lastTeleportId: string | null = null // prevent re-trigger until player steps off
+  private talkingNpc?: NPC
 
   constructor() {
     super({ key: 'GameScene' })
@@ -161,6 +162,9 @@ export class GameScene extends Phaser.Scene {
     this.events.on('npc-interact', (npc: NPC) => {
       // Prevent re-detection after dialog (both auto-detect and manual space press)
       this.behaviorSystem.markDetected(npc)
+      // Show "..." speech bubble while talking (no animation — scene pauses immediately)
+      npc.showBubble(this, '...', false)
+      this.talkingNpc = npc
       this.handleNPCInteraction(npc)
     })
 
@@ -168,6 +172,11 @@ export class GameScene extends Phaser.Scene {
     // briefly block interactions, and re-check gatekeepers
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys()
+      // Hide the "..." bubble from the NPC we were talking to
+      if (this.talkingNpc) {
+        this.talkingNpc.hideBubble()
+        this.talkingNpc = undefined
+      }
       // Don't re-enable anything if player is dead (death handler takes over)
       if (this.hpManager.isDead) return
       this.interaction.setEnabled(false)

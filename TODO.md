@@ -58,11 +58,10 @@
 - [x] Heart pickup collectible (restore 1 HP)
 - [x] Visual feedback (screen flash on damage, heart animation)
 
-### NPC Speech Indicators
-- [ ] Floating "!" icon above NPCs with uncompleted challenges
-- [ ] Floating "..." icon above NPCs with dialog only
-- [ ] Hide indicator after interaction / challenge completion
-- [ ] Animate indicator (gentle bob)
+### NPC Speech Bubbles
+- [x] Speech bubble with "!" when NPC detects the player
+- [x] Speech bubble with "..." while NPC is talking (during dialog)
+- [x] Bubble removed when dialog/challenge closes
 
 ### Particle Effects
 - [ ] Teleport activation particles (sparkle burst)

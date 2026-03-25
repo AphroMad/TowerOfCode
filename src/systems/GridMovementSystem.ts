@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { Player } from '@/entities/Player'
 import { TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
-import { tileToPixel } from '@/utils/helpers'
+import { tileToPixel, DIR_OFFSETS } from '@/utils/helpers'
 import type { Direction, TileEffectData } from '@/data/types'
 
 export class GridMovementSystem {
@@ -153,13 +153,7 @@ export class GridMovementSystem {
   }
 
   private executeMove(dir: Direction): void {
-    const offsets: Record<Direction, { x: number; y: number }> = {
-      down: { x: 0, y: 1 },
-      up: { x: 0, y: -1 },
-      left: { x: -1, y: 0 },
-      right: { x: 1, y: 0 },
-    }
-    const off = offsets[dir]
+    const off = DIR_OFFSETS[dir]
     const targetTileX = this.player.tileX + off.x
     const targetTileY = this.player.tileY + off.y
 
@@ -179,7 +173,7 @@ export class GridMovementSystem {
         return
       }
       // Block was pushed — fall through to move player into the now-clear tile
-    } else if (isHole || this.isTileBlocked(targetTileX, targetTileY)) {
+    } else if (isHole || this.isTileBlocked(targetTileX, targetTileY, dir)) {
       // Hole (no block on it) or wall/OOB
       this.isSliding = false
       this.isMoving = false
@@ -235,7 +229,13 @@ export class GridMovementSystem {
     this.isMoving = false
   }
 
-  private isTileBlocked(tileX: number, tileY: number): boolean {
+  private isTileBlocked(tileX: number, tileY: number, moveDir?: Direction): boolean {
+    // Ledge effect: one-way tile, blocks unless moving in the allowed direction
+    const effect = this.tileEffects.get(`${tileX},${tileY}`)
+    if (effect?.effect === 'ledge') {
+      return moveDir !== effect.direction
+    }
+
     if (this.blockedTiles.has(`${tileX},${tileY}`)) return true
     // Block movement outside map bounds
     const mapWidth = this.wallLayer.layer.width
@@ -245,7 +245,8 @@ export class GridMovementSystem {
     if (this.passableWalls.has(`${tileX},${tileY}`)) return false
     // Block on non-empty wall tiles
     const tile = this.wallLayer.getTileAt(tileX, tileY)
-    return tile !== null
+    if (tile !== null) return true
+    return false
   }
 
   getPlayerTile(): { x: number; y: number } {
@@ -253,13 +254,7 @@ export class GridMovementSystem {
   }
 
   getFacingTile(): { x: number; y: number } {
-    const offsets: Record<Direction, { x: number; y: number }> = {
-      down: { x: 0, y: 1 },
-      up: { x: 0, y: -1 },
-      left: { x: -1, y: 0 },
-      right: { x: 1, y: 0 },
-    }
-    const off = offsets[this.player.facing]
+    const off = DIR_OFFSETS[this.player.facing]
     return {
       x: this.player.tileX + off.x,
       y: this.player.tileY + off.y,

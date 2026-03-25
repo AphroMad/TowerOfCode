@@ -4,7 +4,7 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
 import { GameScene } from '@/scenes/GameScene'
 import { DialogScene } from '@/scenes/DialogScene'
 import { ChallengeScene } from '@/scenes/ChallengeScene'
-import type { FloorData, Direction, TileEffectData } from '@/data/types'
+import type { MapData, Direction, TileEffectData } from '@/data/types'
 import { getAllTiles } from '@/data/tiles/TileRegistry'
 import { getAllSprites } from '@/data/sprites/SpriteRegistry'
 import { normalizeTileTextures } from '@/utils/normalizeTileTextures'
@@ -13,11 +13,11 @@ import { SaveManager } from '@/systems/SaveManager'
 
 /**
  * Boot scene for editor test mode.
- * Loads assets then starts GameScene with the editor's floor data.
- * (GameScene handles tilemap injection from FloorData itself.)
+ * Loads assets then starts GameScene with the editor's map data.
+ * (GameScene handles tilemap injection from MapData itself.)
  */
 class EditorBootScene extends Phaser.Scene {
-  static pendingFloorData: FloorData
+  static pendingMapData: MapData
 
   constructor() {
     super({ key: 'EditorBootScene' })
@@ -37,10 +37,10 @@ class EditorBootScene extends Phaser.Scene {
   create(): void {
     normalizeTileTextures(this)
     normalizeSpriteTextures(this)
-    const floorData = EditorBootScene.pendingFloorData
+    const mapData = EditorBootScene.pendingMapData
     this.scene.start('GameScene', {
-      floorId: floorData.id,
-      floorData,
+      mapId: mapData.id,
+      mapData,
     })
   }
 }
@@ -59,7 +59,7 @@ class EditorMenuScene extends Phaser.Scene {
 }
 
 /**
- * Stub transition scene (no floor switching in test mode).
+ * Stub transition scene (no map switching in test mode).
  */
 class EditorTransitionScene extends Phaser.Scene {
   constructor() {
@@ -69,7 +69,7 @@ class EditorTransitionScene extends Phaser.Scene {
   create(): void {
     this.add.text(
       CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2,
-      'Floor transition not available in test mode.\nPress ESC to return to editor.',
+      'Map transition not available in test mode.\nPress ESC to return to editor.',
       {
         fontSize: '14px',
         color: '#ffffff',
@@ -121,7 +121,7 @@ export class TestMode {
       return false
     }
 
-    const floorData = this.buildFloorData(spawn)
+    const mapData = this.buildMapData(spawn)
 
     // Back up and clear completed challenges so test mode starts fresh
     const save = SaveManager.getInstance()
@@ -129,10 +129,10 @@ export class TestMode {
     save.setCompletedChallenges([])
 
     this.setEditorVisible(false)
-    this.createTestContainer(floorData)
+    this.createTestContainer(mapData)
     document.addEventListener('editor-stop-test', this.stopHandler)
 
-    EditorBootScene.pendingFloorData = floorData
+    EditorBootScene.pendingMapData = mapData
     this.game = this.createPhaserGame()
 
     this.active = true
@@ -140,11 +140,11 @@ export class TestMode {
     return true
   }
 
-  private buildFloorData(spawn: { tileX: number; tileY: number; facing: string }): FloorData {
+  private buildMapData(spawn: { tileX: number; tileY: number; facing: string }): MapData {
     const d = this.state.snapshot
     return {
-      id: d.floorId || 'test-floor',
-      name: d.floorName || 'Test Floor',
+      id: d.mapId || 'test-map',
+      name: d.mapName || 'Test Map',
       width: d.mapWidth,
       height: d.mapHeight,
       groundLayer: [...d.groundLayer],
@@ -170,13 +170,17 @@ export class TestMode {
 
   private buildTileEffects(effectsLayer: number[]): TileEffectData[] {
     const effects: TileEffectData[] = []
-    const idToEffect: Record<number, { effect: 'ice' | 'redirect' | 'hole'; direction?: Direction }> = {
+    const idToEffect: Record<number, { effect: 'ice' | 'redirect' | 'hole' | 'ledge'; direction?: Direction }> = {
       1: { effect: 'ice' },
       2: { effect: 'redirect', direction: 'down' },
       3: { effect: 'redirect', direction: 'up' },
       4: { effect: 'redirect', direction: 'left' },
       5: { effect: 'redirect', direction: 'right' },
       6: { effect: 'hole' },
+      7: { effect: 'ledge', direction: 'down' },
+      8: { effect: 'ledge', direction: 'up' },
+      9: { effect: 'ledge', direction: 'left' },
+      10: { effect: 'ledge', direction: 'right' },
     }
     const mW = this.state.snapshot.mapWidth
     const mH = this.state.snapshot.mapHeight
@@ -192,7 +196,7 @@ export class TestMode {
     return effects
   }
 
-  private createTestContainer(floorData: FloorData): void {
+  private createTestContainer(mapData: MapData): void {
     const container = document.createElement('div')
     container.id = 'test-game-container'
     container.style.cssText = 'position:fixed;inset:0;z-index:1000;background:#1a1a2e;display:flex;align-items:center;justify-content:center;'
@@ -201,7 +205,7 @@ export class TestMode {
     const bar = document.createElement('div')
     bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:1001;background:#661111;color:#fff;font-family:monospace;font-size:13px;padding:6px 16px;display:flex;align-items:center;justify-content:space-between;'
     const label = document.createElement('span')
-    label.textContent = 'TEST MODE — Playing: ' + (floorData.name || floorData.id)
+    label.textContent = 'TEST MODE — Playing: ' + (mapData.name || mapData.id)
     bar.appendChild(label)
     const stopBtn = document.createElement('button')
     stopBtn.textContent = 'Stop (ESC)'

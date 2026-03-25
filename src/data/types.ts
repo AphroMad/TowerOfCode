@@ -121,7 +121,7 @@ export type ChallengeConfig =
 
 // --- Tile Effects ---
 
-export type TileEffectType = 'ice' | 'redirect' | 'hole'
+export type TileEffectType = 'ice' | 'redirect' | 'hole' | 'ledge'
 
 export interface TileEffectData {
   tileX: number
@@ -135,7 +135,7 @@ export interface TileEffectData {
 export interface StairData {
   tileX: number
   tileY: number
-  targetFloorId: string | null // null = floor doesn't exist yet
+  targetMapId: string | null // null = map doesn't exist yet
 }
 
 // --- Teleports (intra-map) ---
@@ -166,9 +166,9 @@ export interface HeartPickupData {
   restoreAmount?: number  // defaults to 1
 }
 
-// --- Floor & Save ---
+// --- Map & Save ---
 
-export interface FloorData {
+export interface MapData {
   id: string
   name: string
   width?: number   // tile columns (default 20)
@@ -189,6 +189,6 @@ export interface FloorData {
 
 export interface SaveData {
   language: 'en' | 'fr'
-  currentFloor: string
+  currentMap: string
   completedChallenges: string[]
 }

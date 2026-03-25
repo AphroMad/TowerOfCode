@@ -1,8 +1,8 @@
-import type { FloorData } from '@/data/types'
+import type { MapData } from '@/data/types'
 
-export const floor03: FloorData = {
-  id: 'floor-03',
-  name: 'New Floor',
+export const map03: MapData = {
+  id: 'map-03',
+  name: 'New Map',
   groundLayer: [
     '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
     '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
@@ -128,7 +128,7 @@ export const floor03: FloorData = {
     { tileX: 9, tileY: 14, effect: 'redirect', direction: 'up' }
   ],
   stairs: [
-    { tileX: 12, tileY: 3, targetFloorId: 'floor-01' },
-    { tileX: 8, tileY: 14, targetFloorId: 'floor-01' }
+    { tileX: 12, tileY: 3, targetMapId: 'map-01' },
+    { tileX: 8, tileY: 14, targetMapId: 'map-01' }
   ],
 }

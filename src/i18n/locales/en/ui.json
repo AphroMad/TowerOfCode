@@ -18,13 +18,13 @@
   "challenge_wrong": "Not quite... Try again!",
   "challenge_title": "Challenge",
 
-  "floor_complete": "Floor Complete!",
-  "floor_complete_msg": "You've mastered this floor's challenges!",
+  "map_complete": "Map Complete!",
+  "map_complete_msg": "You've mastered this map's challenges!",
 
   "save_loaded": "Game loaded!",
   "save_created": "New game started!",
 
-  "stairs_coming_soon": "The upper floors are still under construction...",
+  "stairs_coming_soon": "The upper maps are still under construction...",
   "stairs_blocked": "Complete all challenges before ascending!",
 
   "challenge_replay_prompt": "Would you like to review the lesson?",

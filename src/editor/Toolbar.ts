@@ -2,6 +2,7 @@ import type { EditorState, Tool } from './EditorState'
 import type { UndoManager } from './UndoManager'
 import type { ImportExport } from './ImportExport'
 import type { TestMode } from './TestMode'
+import { TemplateDialog } from './TemplateDialog'
 
 export class Toolbar {
   private state: EditorState
@@ -62,7 +63,7 @@ export class Toolbar {
     const impBtn = document.createElement('button')
     impBtn.textContent = 'Import'
     impBtn.className = 'editor-btn editor-btn-sm'
-    impBtn.title = 'Load a floor .ts file (tiles, NPCs, stairs, spawn)'
+    impBtn.title = 'Load a map .ts file (tiles, NPCs, stairs, spawn)'
     impBtn.addEventListener('click', () => this.io.promptImport())
     ioGroup.appendChild(impBtn)
 
@@ -70,16 +71,16 @@ export class Toolbar {
     expBtn.textContent = 'Export'
     expBtn.className = 'editor-btn'
     expBtn.style.background = '#335533'
-    expBtn.title = 'Download floor .ts file for src/data/floors/'
-    expBtn.addEventListener('click', () => this.io.downloadFloor())
+    expBtn.title = 'Download map .ts file for src/data/maps/'
+    expBtn.addEventListener('click', () => this.io.downloadMap())
     ioGroup.appendChild(expBtn)
 
     this.makeSep(el)
 
-    // Floor metadata
+    // Map metadata
     const metaGroup = this.makeGroup(el)
-    this.makeTextInput(metaGroup, 'ID:', 'floorId', 90, 'Unique floor identifier (e.g. floor-03)')
-    this.makeTextInput(metaGroup, 'Name:', 'floorName', 120, 'Display name shown in-game')
+    this.makeTextInput(metaGroup, 'ID:', 'mapId', 90, 'Unique map identifier (e.g. map-03)')
+    this.makeTextInput(metaGroup, 'Name:', 'mapName', 120, 'Display name shown in-game')
 
     this.makeSep(el)
 
@@ -122,17 +123,15 @@ export class Toolbar {
 
     this.makeSep(el)
 
-    // New floor / Clear
+    // New map / Clear
     const actionGroup = this.makeGroup(el)
+    const templateDialog = new TemplateDialog(this.state, this.undo)
 
     const newBtn = document.createElement('button')
     newBtn.textContent = 'New'
     newBtn.className = 'editor-btn editor-btn-sm'
-    newBtn.title = 'Start a blank floor (clears everything)'
-    newBtn.addEventListener('click', () => {
-      if (!confirm('Clear everything and start a new floor?')) return
-      this.state.reset()
-    })
+    newBtn.title = 'Create a new map (empty, maze, or terrain)'
+    newBtn.addEventListener('click', () => templateDialog.open())
     actionGroup.appendChild(newBtn)
 
     const clearBtn = document.createElement('button')
@@ -217,7 +216,7 @@ export class Toolbar {
     parent.appendChild(btn)
   }
 
-  private makeTextInput(parent: HTMLElement, label: string, key: 'floorId' | 'floorName', width: number, tooltip?: string): void {
+  private makeTextInput(parent: HTMLElement, label: string, key: 'mapId' | 'mapName', width: number, tooltip?: string): void {
     const lbl = document.createElement('span')
     lbl.textContent = label
     lbl.style.color = '#888'
@@ -253,14 +252,14 @@ export class Toolbar {
     const input = document.createElement('input')
     input.type = 'number'
     input.min = '1'
-    input.max = '100'
+    input.max = '1024'
     input.value = String(this.state.snapshot[key])
     input.className = 'toolbar-input'
     input.style.width = '48px'
     input.title = tooltip
     input.addEventListener('change', () => {
       const val = parseInt(input.value)
-      if (isNaN(val) || val < 1 || val > 100) {
+      if (isNaN(val) || val < 1 || val > 1024) {
         input.value = String(this.state.snapshot[key])
         return
       }

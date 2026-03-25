@@ -5,6 +5,19 @@ import { tileToPixel } from '@/utils/helpers'
 // Same 4x4 layout as player: row 0=down, 1=left, 2=right, 3=up
 const DIR_ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 }
 
+// Speech bubble layout constants (pixels)
+const BUBBLE_PAD_X_EXCLAIM = 8
+const BUBBLE_PAD_X_ELLIPSIS = 6
+const BUBBLE_PAD_Y_EXCLAIM = 4
+const BUBBLE_PAD_Y_ELLIPSIS = 3
+const BUBBLE_FONT_EXCLAIM = 16
+const BUBBLE_FONT_ELLIPSIS = 12
+const BUBBLE_TAIL_H = 5
+const BUBBLE_TAIL_W = 4
+const BUBBLE_CORNER_RADIUS = 4
+const BUBBLE_STROKE_WIDTH = 1.5
+const BUBBLE_SPRITE_OFFSET_Y = 14
+
 export class NPC {
   readonly sprite: Phaser.GameObjects.Sprite
   readonly data: NPCData
@@ -67,10 +80,9 @@ export class NPC {
     this.hideBubble()
 
     const isExclaim = text === '!'
-    const fontSize = isExclaim ? 16 : 12
-    const padX = isExclaim ? 8 : 6
-    const padY = isExclaim ? 4 : 3
-    const tailH = 5
+    const fontSize = isExclaim ? BUBBLE_FONT_EXCLAIM : BUBBLE_FONT_ELLIPSIS
+    const padX = isExclaim ? BUBBLE_PAD_X_EXCLAIM : BUBBLE_PAD_X_ELLIPSIS
+    const padY = isExclaim ? BUBBLE_PAD_Y_EXCLAIM : BUBBLE_PAD_Y_ELLIPSIS
 
     // High-res text so it's crisp on retina / zoomed cameras
     const res = Math.max(2, window.devicePixelRatio)
@@ -84,50 +96,48 @@ export class NPC {
 
     const bw = label.width + padX * 2
     const bh = label.height + padY * 2
-    const radius = 4
 
     // Bubble + tail as one continuous shape
     const gfx = scene.add.graphics()
     const l = -bw / 2, r = bw / 2, t = -bh / 2, b = bh / 2
-    const tw = 4 // tail half-width
 
     // Fill
     gfx.fillStyle(0xffffff, 1)
     gfx.beginPath()
-    gfx.moveTo(l + radius, t)
-    gfx.lineTo(r - radius, t)
-    gfx.arc(r - radius, t + radius, radius, -Math.PI / 2, 0)
-    gfx.lineTo(r, b - radius)
-    gfx.arc(r - radius, b - radius, radius, 0, Math.PI / 2)
-    gfx.lineTo(tw, b)
-    gfx.lineTo(0, b + tailH)
-    gfx.lineTo(-tw, b)
-    gfx.lineTo(l + radius, b)
-    gfx.arc(l + radius, b - radius, radius, Math.PI / 2, Math.PI)
-    gfx.lineTo(l, t + radius)
-    gfx.arc(l + radius, t + radius, radius, Math.PI, -Math.PI / 2)
+    gfx.moveTo(l + BUBBLE_CORNER_RADIUS, t)
+    gfx.lineTo(r - BUBBLE_CORNER_RADIUS, t)
+    gfx.arc(r - BUBBLE_CORNER_RADIUS, t + BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, -Math.PI / 2, 0)
+    gfx.lineTo(r, b - BUBBLE_CORNER_RADIUS)
+    gfx.arc(r - BUBBLE_CORNER_RADIUS, b - BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, 0, Math.PI / 2)
+    gfx.lineTo(BUBBLE_TAIL_W, b)
+    gfx.lineTo(0, b + BUBBLE_TAIL_H)
+    gfx.lineTo(-BUBBLE_TAIL_W, b)
+    gfx.lineTo(l + BUBBLE_CORNER_RADIUS, b)
+    gfx.arc(l + BUBBLE_CORNER_RADIUS, b - BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, Math.PI / 2, Math.PI)
+    gfx.lineTo(l, t + BUBBLE_CORNER_RADIUS)
+    gfx.arc(l + BUBBLE_CORNER_RADIUS, t + BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, Math.PI, -Math.PI / 2)
     gfx.closePath()
     gfx.fillPath()
 
     // Stroke (same path)
-    gfx.lineStyle(1.5, 0x333333, 1)
+    gfx.lineStyle(BUBBLE_STROKE_WIDTH, 0x333333, 1)
     gfx.beginPath()
-    gfx.moveTo(l + radius, t)
-    gfx.lineTo(r - radius, t)
-    gfx.arc(r - radius, t + radius, radius, -Math.PI / 2, 0)
-    gfx.lineTo(r, b - radius)
-    gfx.arc(r - radius, b - radius, radius, 0, Math.PI / 2)
-    gfx.lineTo(tw, b)
-    gfx.lineTo(0, b + tailH)
-    gfx.lineTo(-tw, b)
-    gfx.lineTo(l + radius, b)
-    gfx.arc(l + radius, b - radius, radius, Math.PI / 2, Math.PI)
-    gfx.lineTo(l, t + radius)
-    gfx.arc(l + radius, t + radius, radius, Math.PI, -Math.PI / 2)
+    gfx.moveTo(l + BUBBLE_CORNER_RADIUS, t)
+    gfx.lineTo(r - BUBBLE_CORNER_RADIUS, t)
+    gfx.arc(r - BUBBLE_CORNER_RADIUS, t + BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, -Math.PI / 2, 0)
+    gfx.lineTo(r, b - BUBBLE_CORNER_RADIUS)
+    gfx.arc(r - BUBBLE_CORNER_RADIUS, b - BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, 0, Math.PI / 2)
+    gfx.lineTo(BUBBLE_TAIL_W, b)
+    gfx.lineTo(0, b + BUBBLE_TAIL_H)
+    gfx.lineTo(-BUBBLE_TAIL_W, b)
+    gfx.lineTo(l + BUBBLE_CORNER_RADIUS, b)
+    gfx.arc(l + BUBBLE_CORNER_RADIUS, b - BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, Math.PI / 2, Math.PI)
+    gfx.lineTo(l, t + BUBBLE_CORNER_RADIUS)
+    gfx.arc(l + BUBBLE_CORNER_RADIUS, t + BUBBLE_CORNER_RADIUS, BUBBLE_CORNER_RADIUS, Math.PI, -Math.PI / 2)
     gfx.closePath()
     gfx.strokePath()
 
-    const offsetY = -(bh / 2 + tailH + 14)
+    const offsetY = -(bh / 2 + BUBBLE_TAIL_H + BUBBLE_SPRITE_OFFSET_Y)
     this.bubble = scene.add.container(this.sprite.x, this.sprite.y + offsetY, [gfx, label])
     this.bubble.setDepth(99999)
 

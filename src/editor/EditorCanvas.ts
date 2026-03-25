@@ -41,7 +41,7 @@ export class EditorCanvas {
     loadAllTileImages().then(() => {
       this.imagesLoaded = true
       this.render()
-    }).catch(err => console.error('EditorCanvas: failed to load images', err))
+    }).catch(() => { /* image load failure is non-fatal; tiles render as placeholders */ })
 
     let prevW = this.state.snapshot.mapWidth
     let prevH = this.state.snapshot.mapHeight
@@ -162,7 +162,7 @@ export class EditorCanvas {
           this.state.selectEntity('npc', this.state.snapshot.npcs.length - 1)
         } else if (d.placingEntity === 'stair') {
           this.state.mutateQuiet(md => {
-            md.stairs.push({ tileX: tile.x, tileY: tile.y, targetFloorId: null })
+            md.stairs.push({ tileX: tile.x, tileY: tile.y, targetMapId: null })
           })
           this.state.selectEntity('stair', this.state.snapshot.stairs.length - 1)
         } else if (d.placingEntity === 'teleport') {
@@ -429,7 +429,7 @@ export class EditorCanvas {
     const { mapWidth, mapHeight } = this.state.snapshot
     ctx.globalAlpha = alpha
 
-    const arrows: Record<number, string> = { 2: '\u2193', 3: '\u2191', 4: '\u2190', 5: '\u2192' }
+    const arrows: Record<number, string> = { 2: '\u2193', 3: '\u2191', 4: '\u2190', 5: '\u2192', 7: '\u2193', 8: '\u2191', 9: '\u2190', 10: '\u2192' }
 
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
@@ -457,6 +457,14 @@ export class EditorCanvas {
           ctx.fillText('HOLE', dx + s / 2, dy + s / 2)
         } else if (effectId >= 2 && effectId <= 5) {
           ctx.fillStyle = COL_EFFECT_REDIRECT
+          ctx.fillRect(dx, dy, s, s)
+          ctx.fillStyle = COL_EFFECT_TEXT
+          ctx.font = `bold ${Math.round(s * 0.5)}px monospace`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(arrows[effectId], dx + s / 2, dy + s / 2)
+        } else if (effectId >= 7 && effectId <= 10) {
+          ctx.fillStyle = 'rgba(220, 160, 40, 0.35)'
           ctx.fillRect(dx, dy, s, s)
           ctx.fillStyle = COL_EFFECT_TEXT
           ctx.font = `bold ${Math.round(s * 0.5)}px monospace`

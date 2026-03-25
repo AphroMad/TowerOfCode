@@ -1,25 +1,25 @@
 import Phaser from 'phaser'
 import { TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
-import { tileToPixel } from '@/utils/helpers'
+import { tileToPixel, DIR_OFFSETS } from '@/utils/helpers'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
-import type { Direction, FloorData } from '@/data/types'
+import type { Direction, MapData } from '@/data/types'
 
 export class BlockManager {
   private scene: Phaser.Scene
   private gridMovement: GridMovementSystem
-  private floor: FloorData
+  private mapData: MapData
   private blockSprites: Map<string, Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image> = new Map()
 
-  constructor(scene: Phaser.Scene, gridMovement: GridMovementSystem, floor: FloorData) {
+  constructor(scene: Phaser.Scene, gridMovement: GridMovementSystem, mapData: MapData) {
     this.scene = scene
     this.gridMovement = gridMovement
-    this.floor = floor
+    this.mapData = mapData
   }
 
   init(): void {
     this.blockSprites.clear()
-    if (this.floor.blocks?.length) {
-      for (const b of this.floor.blocks) {
+    if (this.mapData.blocks?.length) {
+      for (const b of this.mapData.blocks) {
         this.createBlock(b.tileX, b.tileY, b.spriteKey)
       }
     }
@@ -52,15 +52,11 @@ export class BlockManager {
     const sprite = this.blockSprites.get(blockKey)
     if (!sprite) return false
 
-    const offsets: Record<Direction, { x: number; y: number }> = {
-      down: { x: 0, y: 1 }, up: { x: 0, y: -1 },
-      left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
-    }
-    const off = offsets[dir]
+    const off = DIR_OFFSETS[dir]
     const destX = blockX + off.x
     const destY = blockY + off.y
 
-    const destEffect = this.floor.tileEffects?.find(
+    const destEffect = this.mapData.tileEffects?.find(
       e => e.tileX === destX && e.tileY === destY && e.effect === 'hole'
     )
 
@@ -92,11 +88,11 @@ export class BlockManager {
             onComplete: () => {
               sprite.destroy()
               this.gridMovement.removeTileEffect(destX, destY)
-              if (this.floor.tileEffects) {
-                const idx = this.floor.tileEffects.findIndex(
+              if (this.mapData.tileEffects) {
+                const idx = this.mapData.tileEffects.findIndex(
                   e => e.tileX === destX && e.tileY === destY && e.effect === 'hole'
                 )
-                if (idx >= 0) this.floor.tileEffects.splice(idx, 1)
+                if (idx >= 0) this.mapData.tileEffects.splice(idx, 1)
               }
             },
           })

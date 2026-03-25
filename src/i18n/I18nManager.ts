@@ -1,17 +1,17 @@
 import type { DialogLine } from '@/systems/DialogSystem'
 import enUi from '@/i18n/locales/en/ui.json'
-import enFloors from '@/i18n/locales/en/floors.json'
+import enMaps from '@/i18n/locales/en/maps.json'
 import enDialogs from '@/i18n/locales/en/dialogs.json'
 import frUi from '@/i18n/locales/fr/ui.json'
-import frFloors from '@/i18n/locales/fr/floors.json'
+import frMaps from '@/i18n/locales/fr/maps.json'
 import frDialogs from '@/i18n/locales/fr/dialogs.json'
 
 type Language = 'en' | 'fr'
 type LocaleData = Record<string, string | string[]>
 
 const locales: Record<Language, LocaleData> = {
-  en: { ...enUi, ...enFloors, ...enDialogs },
-  fr: { ...frUi, ...frFloors, ...frDialogs },
+  en: { ...enUi, ...enMaps, ...enDialogs },
+  fr: { ...frUi, ...frMaps, ...frDialogs },
 }
 
 export class I18nManager {

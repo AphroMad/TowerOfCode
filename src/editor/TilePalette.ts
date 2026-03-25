@@ -20,6 +20,10 @@ const EFFECTS: EffectEntry[] = [
   { id: 4, label: 'Redirect \u2190', color: '#cc8844', arrow: '\u2190', folder: 'Redirect' },
   { id: 5, label: 'Redirect \u2192', color: '#cc8844', arrow: '\u2192', folder: 'Redirect' },
   { id: 6, label: 'Hole', color: '#442211', folder: 'Blocking' },
+  { id: 7, label: 'Ledge \u2193', color: '#ddaa28', arrow: '\u2193', folder: 'Ledge' },
+  { id: 8, label: 'Ledge \u2191', color: '#ddaa28', arrow: '\u2191', folder: 'Ledge' },
+  { id: 9, label: 'Ledge \u2190', color: '#ddaa28', arrow: '\u2190', folder: 'Ledge' },
+  { id: 10, label: 'Ledge \u2192', color: '#ddaa28', arrow: '\u2192', folder: 'Ledge' },
 ]
 
 interface CellData {
@@ -59,7 +63,7 @@ export class TilePalette {
 
     loadAllTileImages()
       .then(() => this.buildAllPalettes())
-      .catch(err => console.error('TilePalette: failed to load images', err))
+      .catch(() => { /* image load failure is non-fatal; palette renders empty */ })
 
     state.onChange(() => this.updateView())
   }
@@ -473,5 +477,6 @@ export class TilePalette {
       const selected = isActive && d.activeLayer === 'effects' && d.selectedEffectId === effectId
       canvas.style.border = selected ? '2px solid #ffdd44' : '2px solid transparent'
     }
+
   }
 }

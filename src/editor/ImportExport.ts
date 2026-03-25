@@ -31,8 +31,8 @@ export class ImportExport {
   private autosave(): void {
     const d = this.state.snapshot
     const payload = {
-      floorId: d.floorId,
-      floorName: d.floorName,
+      mapId: d.mapId,
+      mapName: d.mapName,
       mapWidth: d.mapWidth,
       mapHeight: d.mapHeight,
       groundLayer: d.groundLayer,
@@ -59,15 +59,25 @@ export class ImportExport {
       const h = data.mapHeight || MAP_HEIGHT_TILES
       const size = w * h
 
+      // Migration: handle old floorId/floorName keys from previous autosaves
+      const mapId = data.mapId || data.floorId || 'map-01'
+      const mapName = data.mapName || data.floorName || 'New Map'
+
       this.state.loadState({
-        floorId: data.floorId || 'floor-01',
-        floorName: data.floorName || 'New Floor',
+        mapId,
+        mapName,
         mapWidth: w,
         mapHeight: h,
         groundLayer: Array.isArray(data.groundLayer) ? data.groundLayer : new Array(size).fill(''),
         wallsLayer: Array.isArray(data.wallsLayer) ? data.wallsLayer : new Array(size).fill(''),
         wallsCollision: Array.isArray(data.wallsCollision) ? data.wallsCollision : new Array(size).fill(true),
-        effectsLayer: data.effectsLayer || new Array(size).fill(0),
+        effectsLayer: Array.isArray(data.effectsLayer)
+          ? (() => {
+              const el = (data.effectsLayer as number[]).slice(0, size)
+              while (el.length < size) el.push(0)
+              return el
+            })()
+          : new Array(size).fill(0),
         playerSpawn: data.playerSpawn || null,
         npcs: (data.npcs || []).map((n: Record<string, unknown>) => ({
           ...n,
@@ -99,11 +109,11 @@ export class ImportExport {
     return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   }
 
-  // ── Export TS (FloorData — single file with everything) ──
+  // ── Export TS (MapData — single file with everything) ──
 
-  exportFloorTs(): string {
+  exportMapTs(): string {
     const d = this.state.snapshot
-    const varName = d.floorId.replace(/-/g, '')
+    const varName = d.mapId.replace(/-/g, '')
     const spawn = d.playerSpawn || { tileX: 10, tileY: 12, facing: 'up' }
     const mW = d.mapWidth
     const mH = d.mapHeight
@@ -141,8 +151,8 @@ export class ImportExport {
     }).join(',\n')
 
     const stairStr = d.stairs.map(s => {
-      const target = s.targetFloorId ? `'${s.targetFloorId}'` : 'null'
-      return `    { tileX: ${s.tileX}, tileY: ${s.tileY}, targetFloorId: ${target} }`
+      const target = s.targetMapId ? `'${s.targetMapId}'` : 'null'
+      return `    { tileX: ${s.tileX}, tileY: ${s.tileY}, targetMapId: ${target} }`
     }).join(',\n')
 
     const teleportStr = d.teleports.map(t => {
@@ -184,6 +194,10 @@ export class ImportExport {
       4: { effect: 'redirect', direction: 'left' },
       5: { effect: 'redirect', direction: 'right' },
       6: { effect: 'hole' },
+      7: { effect: 'ledge', direction: 'down' },
+      8: { effect: 'ledge', direction: 'up' },
+      9: { effect: 'ledge', direction: 'left' },
+      10: { effect: 'ledge', direction: 'right' },
     }
     const effects: string[] = []
     for (let y = 0; y < mH; y++) {
@@ -220,11 +234,11 @@ export class ImportExport {
       ? `  width: ${mW},\n  height: ${mH},\n`
       : ''
 
-    return `import type { FloorData } from '@/data/types'
+    return `import type { MapData } from '@/data/types'
 
-export const ${varName}: FloorData = {
-  id: '${d.floorId}',
-  name: '${this.esc(d.floorName)}',
+export const ${varName}: MapData = {
+  id: '${d.mapId}',
+  name: '${this.esc(d.mapName)}',
 ${sizeBlock}  groundLayer: [
 ${formatLayer(d.groundLayer)}
   ],
@@ -247,7 +261,7 @@ ${stairStr}
 
   // ── Import TS (best-effort regex parse) ──
 
-  importFloorTs(text: string): boolean {
+  importMapTs(text: string): boolean {
     try {
       const idMatch = text.match(/id:\s*'([^']+)'/)
       const nameMatch = text.match(/name:\s*'([^']+)'/)
@@ -334,14 +348,14 @@ ${stairStr}
         let match
         while ((match = stairRegex.exec(stairsBlockMatch[1])) !== null) {
           const block = match[0]
-          const targetMatch = block.match(/targetFloorId:\s*(?:'([^']+)'|null)/)
+          const targetMatch = block.match(/targetMapId:\s*(?:'([^']+)'|null)/)
           const stairX = this.extractNum(block, 'tileX')
           const stairY = this.extractNum(block, 'tileY')
           if (stairX >= 0 && stairX < mW && stairY >= 0 && stairY < mH) {
             stairs.push({
               tileX: stairX,
               tileY: stairY,
-              targetFloorId: targetMatch?.[1] || null,
+              targetMapId: targetMatch?.[1] || null,
             })
           }
         }
@@ -353,6 +367,7 @@ ${stairStr}
         ice: { '': 1 },
         redirect: { down: 2, up: 3, left: 4, right: 5 },
         hole: { '': 6 },
+        ledge: { down: 7, up: 8, left: 9, right: 10 },
       }
       const effectsBlockMatch = text.match(/tileEffects:\s*\[([\s\S]*?)\]\s*,/)
       if (effectsBlockMatch) {
@@ -367,6 +382,23 @@ ${stairStr}
           const mapping = effectTypeToId[effectType]
           if (mapping && ex >= 0 && ex < mW && ey >= 0 && ey < mH) {
             effectsLayer[ey * mW + ex] = mapping[dir] ?? mapping[''] ?? 0
+          }
+        }
+      }
+
+      // Also import legacy ledges[] as effect IDs 7-10
+      const ledgesBlockMatch = text.match(/ledges:\s*\[([\s\S]*?)\]\s*,/)
+      if (ledgesBlockMatch) {
+        const ledgeDirToId: Record<string, number> = { down: 7, up: 8, left: 9, right: 10 }
+        const lEntryRegex = /\{[^}]*tileX:\s*(\d+)[^}]*tileY:\s*(\d+)[^}]*direction:\s*'(\w+)'[^}]*\}/g
+        let lm
+        while ((lm = lEntryRegex.exec(ledgesBlockMatch[1])) !== null) {
+          const lx = parseInt(lm[1])
+          const ly = parseInt(lm[2])
+          const dir = lm[3]
+          const eid = ledgeDirToId[dir]
+          if (eid && lx >= 0 && lx < mW && ly >= 0 && ly < mH) {
+            effectsLayer[ly * mW + lx] = eid
           }
         }
       }
@@ -448,8 +480,8 @@ ${stairStr}
       const startingHp = startingHpMatch ? parseInt(startingHpMatch[1]) : 0
 
       this.state.loadState({
-        floorId: idMatch?.[1] || this.state.snapshot.floorId,
-        floorName: nameMatch?.[1] || this.state.snapshot.floorName,
+        mapId: idMatch?.[1] || this.state.snapshot.mapId,
+        mapName: nameMatch?.[1] || this.state.snapshot.mapName,
         mapWidth: mW,
         mapHeight: mH,
         groundLayer,
@@ -500,9 +532,9 @@ ${stairStr}
 
   // ── File download / upload ──
 
-  downloadFloor(): void {
-    const ts = this.exportFloorTs()
-    this.download(`${this.state.snapshot.floorId}.ts`, ts, 'text/typescript')
+  downloadMap(): void {
+    const ts = this.exportMapTs()
+    this.download(`${this.state.snapshot.mapId}.ts`, ts, 'text/typescript')
   }
 
   promptImport(): void {
@@ -513,8 +545,8 @@ ${stairStr}
       const file = input.files?.[0]
       if (!file) return
       file.text().then(text => {
-        if (!this.importFloorTs(text)) {
-          alert('Failed to parse floor file')
+        if (!this.importMapTs(text)) {
+          alert('Failed to parse map file')
         }
       }).catch(() => alert('Failed to read file'))
     })

@@ -3,7 +3,7 @@ import type { SaveData } from '@/data/types'
 
 const DEFAULT_SAVE: SaveData = {
   language: 'en',
-  currentFloor: 'floor-01',
+  currentMap: 'map-01',
   completedChallenges: [],
 }
 
@@ -25,7 +25,13 @@ export class SaveManager {
   private load(): SaveData {
     const raw = localStorage.getItem(SAVE_KEY)
     if (raw) {
-      return JSON.parse(raw) as SaveData
+      const parsed = JSON.parse(raw) as SaveData & { currentFloor?: string }
+      // Migrate old saves that used "currentFloor" / "floor-" prefix
+      if ('currentFloor' in parsed) {
+        parsed.currentMap = (parsed.currentFloor as string).replace('floor-', 'map-')
+        delete parsed.currentFloor
+      }
+      return parsed as SaveData
     }
     return { ...DEFAULT_SAVE, completedChallenges: [] }
   }
@@ -53,8 +59,8 @@ export class SaveManager {
     return this.data.completedChallenges.includes(id)
   }
 
-  setCurrentFloor(floorId: string): void {
-    this.data.currentFloor = floorId
+  setCurrentMap(mapId: string): void {
+    this.data.currentMap = mapId
     this.save()
   }
 

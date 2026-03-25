@@ -18,8 +18,8 @@
   "challenge_wrong": "Pas tout à fait... Essaie encore !",
   "challenge_title": "Défi",
 
-  "floor_complete": "Étage Terminé !",
-  "floor_complete_msg": "Tu as maîtrisé les défis de cet étage !",
+  "map_complete": "Carte Terminée !",
+  "map_complete_msg": "Tu as maîtrisé les défis de cette carte !",
 
   "save_loaded": "Partie chargée !",
   "save_created": "Nouvelle partie commencée !",

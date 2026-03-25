@@ -35,14 +35,15 @@ async function init(): Promise<void> {
     // via globalThis since Pyodide's CDN script assigns to globalThis.loadPyodide
     importScripts(`${PYODIDE_CDN}pyodide.js`)
 
+    // Cast required: Pyodide is loaded from CDN via importScripts and attaches
+    // loadPyodide to globalThis at runtime — no TS types are available for it.
     const loadPyodide = (globalThis as unknown as {
       loadPyodide: (config: { indexURL: string }) => Promise<PyodideInterface>
     }).loadPyodide
 
     pyodide = await loadPyodide({ indexURL: PYODIDE_CDN })
     postStatus('ready')
-  } catch (e) {
-    console.error('Pyodide worker init failed:', e)
+  } catch (_e) {
     postStatus('error')
   }
 }

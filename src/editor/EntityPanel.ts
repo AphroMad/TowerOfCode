@@ -1,7 +1,7 @@
 import { type EditorState, type EntityType } from './EditorState'
 import type { UndoManager } from './UndoManager'
 import type { Direction, NPCData, NpcBehavior, TeleportRole } from '@/data/types'
-import { getAllFloorIds } from '@/data/floors/FloorRegistry'
+import { getAllMapIds } from '@/data/maps/MapRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getAllChallengeIds } from '@/data/challenges'
 import { getSpriteKeys } from '@/data/sprites/SpriteRegistry'
@@ -160,13 +160,13 @@ export class EntityPanel {
 
       this.addInfo(`Position: (${npc.tileX}, ${npc.tileY})`)
 
-      // Name (must be unique per floor — animation keys depend on it)
+      // Name (must be unique per map — animation keys depend on it)
       this.addInput('Name', npc.name, (v) => {
         const trimmed = v.trim()
         if (!trimmed) return
         const duplicate = d.npcs.some((n, i) => i !== d.selectedEntityIndex && n.name === trimmed)
         if (duplicate) {
-          alert(`An NPC named "${trimmed}" already exists on this floor. Names must be unique.`)
+          alert(`An NPC named "${trimmed}" already exists on this map. Names must be unique.`)
           return
         }
         npc.name = trimmed
@@ -226,9 +226,9 @@ export class EntityPanel {
 
       this.addInfo(`Position: (${stair.tileX}, ${stair.tileY})`)
 
-      const floorOptions = ['(none)', ...getAllFloorIds()]
-      this.addSelect('Target Floor', floorOptions, stair.targetFloorId ?? '(none)', (v) => {
-        stair.targetFloorId = v === '(none)' ? null : v
+      const mapOptions = ['(none)', ...getAllMapIds()]
+      this.addSelect('Target Map', mapOptions, stair.targetMapId ?? '(none)', (v) => {
+        stair.targetMapId = v === '(none)' ? null : v
         this.state.emit()
       })
 

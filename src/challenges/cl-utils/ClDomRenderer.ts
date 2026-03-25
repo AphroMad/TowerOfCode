@@ -135,6 +135,7 @@ export class ClDomRenderer {
   }
 
   private renderInfoCard(container: HTMLElement, block: ClContentBlock): void {
+    // Info card blocks use a loosely-typed value object with title/content subfields
     const val = block.value as unknown as Record<string, unknown>
     const titleSource = (val?.title ?? block.title) as { en: string; fr: string } | string | undefined
     const contentSource = (val?.content ?? block.content) as { en: string; fr: string } | string | undefined

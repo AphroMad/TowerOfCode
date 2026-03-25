@@ -1,15 +1,15 @@
 import Phaser from 'phaser'
 import { Player } from '@/entities/Player'
 import { I18nManager } from '@/i18n/I18nManager'
-import { getFloorById } from '@/data/floors/FloorRegistry'
+import { getMapById } from '@/data/maps/MapRegistry'
 import { tileToPixel } from '@/utils/helpers'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
-import type { Direction, FloorData } from '@/data/types'
+import type { Direction, MapData } from '@/data/types'
 
 export class WarpManager {
   private scene: Phaser.Scene
   private gridMovement: GridMovementSystem
-  private floor: FloorData
+  private mapData: MapData
   private player: Player
   private sparkleEmitter: Phaser.GameObjects.Particles.ParticleEmitter
   isTransitioning = false
@@ -18,12 +18,12 @@ export class WarpManager {
   constructor(
     scene: Phaser.Scene,
     gridMovement: GridMovementSystem,
-    floor: FloorData,
+    mapData: MapData,
     player: Player,
   ) {
     this.scene = scene
     this.gridMovement = gridMovement
-    this.floor = floor
+    this.mapData = mapData
     this.player = player
 
     // Generate sparkle texture (tiny diamond shape)
@@ -52,14 +52,14 @@ export class WarpManager {
     const playerTile = this.gridMovement.getPlayerTile()
 
     // Intra-map teleport (senders only)
-    const teleport = this.floor.teleports?.find(
+    const teleport = this.mapData.teleports?.find(
       t => t.role === 'sender' && t.tileX === playerTile.x && t.tileY === playerTile.y
     )
     if (teleport) {
       if (this.lastTeleportId === teleport.id) return
 
       const target = teleport.targetId
-        ? this.floor.teleports?.find(t => t.id === teleport.targetId)
+        ? this.mapData.teleports?.find(t => t.id === teleport.targetId)
         : undefined
       if (target) {
         this.isTransitioning = true
@@ -79,39 +79,39 @@ export class WarpManager {
 
     // Clear step-off guard when player leaves any teleport tile
     if (this.lastTeleportId) {
-      const stillOnTeleport = this.floor.teleports?.some(
+      const stillOnTeleport = this.mapData.teleports?.some(
         t => t.tileX === playerTile.x && t.tileY === playerTile.y
       )
       if (!stillOnTeleport) this.lastTeleportId = null
     }
 
-    // Floor warp
-    const stair = this.floor.stairs.find(
+    // Map warp
+    const stair = this.mapData.stairs.find(
       s => s.tileX === playerTile.x && s.tileY === playerTile.y
     )
     if (!stair) return
 
     const i18n = I18nManager.getInstance()
 
-    if (stair.targetFloorId === null) {
+    if (stair.targetMapId === null) {
       this.isTransitioning = true
       this.gridMovement.freeze()
       this.showToast(i18n.t('stairs_coming_soon'))
       return
     }
 
-    const fromDirection = stair.tileY < this.floor.playerStart.tileY ? 'up' : 'down'
+    const fromDirection = stair.tileY < this.mapData.playerStart.tileY ? 'up' : 'down'
 
     this.isTransitioning = true
     this.gridMovement.freeze()
     this.sparkleEmitter.emitParticleAt(this.player.sprite.x, this.player.sprite.y)
-    const targetFloor = getFloorById(stair.targetFloorId)
-    const floorNameKey = `${stair.targetFloorId.replace('-', '_')}_name`
+    const targetMap = getMapById(stair.targetMapId)
+    const mapNameKey = `${stair.targetMapId.replace('-', '_')}_name`
     this.scene.scene.launch('TransitionScene', {
-      floorId: stair.targetFloorId,
-      floorName: targetFloor ? i18n.t(floorNameKey) : stair.targetFloorId,
+      mapId: stair.targetMapId,
+      mapName: targetMap ? i18n.t(mapNameKey) : stair.targetMapId,
       fromDirection,
-      fromFloorId: this.floor.id,
+      fromMapId: this.mapData.id,
     })
   }
 
@@ -144,16 +144,16 @@ export class WarpManager {
   }
 
   static resolveSpawn(
-    floor: FloorData,
+    mapData: MapData,
     fromDirection?: 'up' | 'down',
-    fromFloorId?: string,
+    fromMapId?: string,
   ): { tileX: number; tileY: number; facing: Direction } {
-    if (fromDirection === 'down' && fromFloorId) {
-      const stair = floor.stairs.find(s => s.targetFloorId === fromFloorId)
+    if (fromDirection === 'down' && fromMapId) {
+      const stair = mapData.stairs.find(s => s.targetMapId === fromMapId)
       if (stair) {
         return { tileX: stair.tileX, tileY: stair.tileY + 1, facing: 'down' }
       }
     }
-    return floor.playerStart
+    return mapData.playerStart
   }
 }

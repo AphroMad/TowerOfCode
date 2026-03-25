@@ -1,11 +1,11 @@
-import type { FloorData } from '@/data/types'
+import type { MapData } from '@/data/types'
 
 // prettier-ignore
 const G = 'ground/basic/'
 
 // prettier-ignore
-export const floor01: FloorData = {
-  id: 'floor-01',
+export const map01: MapData = {
+  id: 'map-01',
   name: 'The Entrance Hall',
   groundLayer: [
     G+'9', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'8',
@@ -39,6 +39,6 @@ export const floor01: FloorData = {
   ],
   requiredChallenges: [],
   stairs: [
-    { tileX: 10, tileY: 1, targetFloorId: 'floor-03' },
+    { tileX: 10, tileY: 1, targetMapId: 'map-03' },
   ],
 }

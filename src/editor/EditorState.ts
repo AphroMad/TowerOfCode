@@ -12,15 +12,15 @@ export interface PlayerSpawn {
 }
 
 export interface EditorData {
-  floorId: string
-  floorName: string
+  mapId: string
+  mapName: string
   mapWidth: number
   mapHeight: number
 
   groundLayer: string[]   // tile keys, "" = empty
   wallsLayer: string[]    // tile keys, "" = empty
   wallsCollision: boolean[] // per-tile collision flag, true = blocks movement
-  effectsLayer: number[]  // 0=none, 1=ice, 2=redirect-down, 3=redirect-up, 4=redirect-left, 5=redirect-right
+  effectsLayer: number[]  // 0=none, 1=ice, 2=redirect-down, 3=redirect-up, 4=redirect-left, 5=redirect-right, 6=hole, 7-10=ledge
 
   activeLayer: LayerName
   activeTool: Tool
@@ -102,8 +102,8 @@ export class EditorState {
     const w = MAP_WIDTH_TILES
     const h = MAP_HEIGHT_TILES
     return {
-      floorId: 'floor-03',
-      floorName: 'New Floor',
+      mapId: 'map-03',
+      mapName: 'New Map',
       mapWidth: w,
       mapHeight: h,
       groundLayer: new Array(w * h).fill(''),
@@ -148,7 +148,7 @@ export class EditorState {
     return this._data.wallsLayer
   }
 
-  setTile(x: number, y: number, value: string | number): void {
+  setTile(x: number, y: number, value: string | number | boolean): void {
     const { mapWidth, mapHeight } = this._data
     if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) return
     const idx = y * mapWidth + x

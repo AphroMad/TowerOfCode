@@ -2,15 +2,8 @@ import Phaser from 'phaser'
 import type { NPC } from '@/entities/NPC'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
 import type { Player } from '@/entities/Player'
-import type { Direction } from '@/data/types'
+import { DIR_OFFSETS } from '@/utils/helpers'
 import { SaveManager } from '@/systems/SaveManager'
-
-const DIR_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 },
-}
 
 interface NpcState {
   npc: NPC
@@ -103,8 +96,8 @@ export class NpcBehaviorSystem {
     const off = DIR_OFFSETS[facing]
     const playerTile = this.grid.getPlayerTile()
 
-    let tx = npc.data.tileX + off.dx
-    let ty = npc.data.tileY + off.dy
+    let tx = npc.data.tileX + off.x
+    let ty = npc.data.tileY + off.y
 
     while (tx >= 0 && tx < this.mapWidth && ty >= 0 && ty < this.mapHeight) {
       // Hit a wall — stop looking
@@ -119,8 +112,8 @@ export class NpcBehaviorSystem {
       // Other NPCs / blocks obstruct line of sight
       if (this.grid.isBlocked(tx, ty)) break
 
-      tx += off.dx
-      ty += off.dy
+      tx += off.x
+      ty += off.y
     }
   }
 

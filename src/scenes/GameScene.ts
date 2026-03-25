@@ -5,11 +5,11 @@ import { GridMovementSystem } from '@/systems/GridMovementSystem'
 import { InteractionSystem } from '@/systems/InteractionSystem'
 import { NpcBehaviorSystem } from '@/systems/NpcBehaviorSystem'
 import { SaveManager } from '@/systems/SaveManager'
-import { getFloorById } from '@/data/floors/FloorRegistry'
+import { getMapById } from '@/data/maps/MapRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
-import type { ChallengeConfig, FloorData } from '@/data/types'
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, TILE_SIZE } from '@/config/game.config'
+import type { ChallengeConfig, MapData } from '@/data/types'
 import { buildTiledMapJson } from '@/utils/buildTiledMapJson'
 import { AnimatedTileSystem } from '@/systems/AnimatedTileSystem'
 import { HpManager } from '@/systems/HpManager'
@@ -33,8 +33,8 @@ export class GameScene extends Phaser.Scene {
   private warpManager!: WarpManager
   private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
-  private floor!: FloorData
-  private pristineFloor!: string  // JSON snapshot for clean restart
+  private mapData!: MapData
+  private pristineMap!: string  // JSON snapshot for clean restart
   private challengeStateOnEntry: string[] = []
   private isDead = false
   private talkingNpc?: NPC
@@ -43,97 +43,123 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
   }
 
-  create(data?: { floorId?: string; fromDirection?: 'up' | 'down'; fromFloorId?: string; floorData?: FloorData }): void {
+  create(data?: { mapId?: string; fromDirection?: 'up' | 'down'; fromMapId?: string; mapData?: MapData }): void {
     this.isDead = false
 
-    // Resolve floor: from direct data (test mode), then registry, then save, fallback
-    // Deep-clone to avoid mutating the source (blocks/hearts get modified at runtime)
+    // Resolve map: from direct data (test mode), then registry, then save, fallback
     const save = SaveManager.getInstance()
-    const floorId = data?.floorId ?? save.getData().currentFloor
-    const rawFloor = data?.floorData ?? getFloorById(floorId) ?? getFloorById('floor-01')!
-    // Keep a pristine JSON snapshot for clean restarts (before any runtime mutations)
-    this.pristineFloor = JSON.stringify(rawFloor)
-    const floor: FloorData = JSON.parse(this.pristineFloor)
-    this.floor = floor
+    const mapId = data?.mapId ?? save.getData().currentMap
+    const rawMap = data?.mapData ?? getMapById(mapId) ?? getMapById('map-01')!
+    this.pristineMap = JSON.stringify(rawMap)
+    const mapData: MapData = JSON.parse(this.pristineMap)
+    this.mapData = mapData
 
-    // Persist current floor (skip in test mode)
-    if (!data?.floorData) save.setCurrentFloor(floor.id)
+    // Persist current map (skip in test mode)
+    if (!data?.mapData) save.setCurrentMap(mapData.id)
 
     // Snapshot challenge state so we can restore on death
     this.challengeStateOnEntry = [...save.getCompletedChallenges()]
 
-    // Build Tiled JSON from floor tile data and inject into cache
-    const mapW = floor.width ?? MAP_WIDTH_TILES
-    const mapH = floor.height ?? MAP_HEIGHT_TILES
-    const { json: mapJson, keyToGid } = buildTiledMapJson(floor.groundLayer, floor.wallsLayer, mapW, mapH)
-    this.cache.tilemap.add(floor.id, {
+    const mapW = mapData.width ?? MAP_WIDTH_TILES
+    const mapH = mapData.height ?? MAP_HEIGHT_TILES
+
+    const map = this.buildTilemap(mapData, mapW, mapH)
+    this.setupPlayer(mapData, data?.fromDirection, data?.fromMapId)
+    this.setupMovement(mapData, mapW)
+    this.setupEntities(mapData)
+    this.setupEventHandlers()
+    this.setupCamera(map)
+    this.showMapName(mapData)
+    this.setupInputAndLifecycle()
+  }
+
+  private buildTilemap(mapData: MapData, mapW: number, mapH: number): Phaser.Tilemaps.Tilemap {
+    const { json: mapJson, keyToGid } = buildTiledMapJson(mapData.groundLayer, mapData.wallsLayer, mapW, mapH)
+    this.cache.tilemap.add(mapData.id, {
       data: mapJson,
       format: Phaser.Tilemaps.Formats.TILED_JSON,
     })
 
-    const map = this.make.tilemap({ key: floor.id })
-    // Dynamically bind all tilesets referenced in the JSON
+    const map = this.make.tilemap({ key: mapData.id })
     const tilesets: Phaser.Tilemaps.Tileset[] = []
     for (const tsData of map.tilesets) {
-      // tileset name in JSON matches the Phaser cache key (tile registry key)
       const ts = map.addTilesetImage(tsData.name, tsData.name)
       if (ts) tilesets.push(ts)
     }
 
-    // Ground layer
     const groundTileLayer = map.createLayer('Ground', tilesets, 0, 0)!
-
-    // Walls layer (collision)
     this.wallLayer = map.createLayer('Walls', tilesets, 0, 0)!
 
     // Animated tiles (cycles frames for tiles with _f1/_f2/... naming)
     this.animatedTiles = new AnimatedTileSystem([groundTileLayer, this.wallLayer], keyToGid)
 
-    // Determine player spawn: near the arrival stair, or default playerStart
-    const spawn = WarpManager.resolveSpawn(floor, data?.fromDirection, data?.fromFloorId)
+    return map
+  }
+
+  private setupPlayer(mapData: MapData, fromDirection?: 'up' | 'down', fromMapId?: string): void {
+    const spawn = WarpManager.resolveSpawn(mapData, fromDirection, fromMapId)
     this.player = new Player(this, spawn.tileX, spawn.tileY)
     this.player.facing = spawn.facing
+  }
 
-    // Grid movement
+  private setupMovement(mapData: MapData, mapW: number): void {
     this.gridMovement = new GridMovementSystem(this, this.player, this.wallLayer)
-    if (floor.tileEffects?.length) {
-      this.gridMovement.setTileEffects(floor.tileEffects)
+
+    if (mapData.tileEffects?.length) {
+      this.gridMovement.setTileEffects(mapData.tileEffects)
+
+      // Render ledge indicators
+      const ledgeEffects = mapData.tileEffects.filter(e => e.effect === 'ledge')
+      if (ledgeEffects.length > 0) {
+        const ledgeGfx = this.add.graphics()
+        ledgeGfx.setDepth(-1)
+        for (const l of ledgeEffects) {
+          const px = l.tileX * TILE_SIZE
+          const py = l.tileY * TILE_SIZE
+          ledgeGfx.fillStyle(0xddaa28, 0.2)
+          ledgeGfx.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        }
+      }
     }
 
     // Non-collision wall tiles (passable overrides)
-    if (floor.wallsCollision) {
+    if (mapData.wallsCollision) {
       const passableWalls = new Set<string>()
-      for (let i = 0; i < floor.wallsLayer.length; i++) {
-        if (floor.wallsLayer[i] !== '' && !floor.wallsCollision[i]) {
+      for (let i = 0; i < mapData.wallsLayer.length; i++) {
+        if (mapData.wallsLayer[i] !== '' && !mapData.wallsCollision[i]) {
           passableWalls.add(`${i % mapW},${Math.floor(i / mapW)}`)
         }
       }
       if (passableWalls.size > 0) this.gridMovement.setPassableWalls(passableWalls)
     }
+  }
 
+  private setupEntities(mapData: MapData): void {
     // NPCs
-    this.npcs = floor.npcs.map(npcData => {
+    this.npcs = mapData.npcs.map(npcData => {
       const npc = new NPC(this, npcData)
       this.gridMovement.blockTile(npcData.tileX, npcData.tileY)
       return npc
     })
 
     // Pushable blocks
-    this.blockManager = new BlockManager(this, this.gridMovement, floor)
+    this.blockManager = new BlockManager(this, this.gridMovement, mapData)
     this.blockManager.init()
 
     // HP system
-    this.hpManager = new HpManager(floor.startingHp)
+    this.hpManager = new HpManager(mapData.startingHp)
     this.heartHud = new HeartHud(this, this.hpManager.maxHp, this.hpManager.isInfinite)
     this.heartHud.update(this.hpManager.hp)
 
     // Heart pickups
     this.heartPickupManager = new HeartPickupManager(this, this.gridMovement, this.hpManager, this.heartHud)
-    this.heartPickupManager.init(floor.hearts ?? [])
+    this.heartPickupManager.init(mapData.hearts ?? [])
 
     // Warp system (stairs, teleports)
-    this.warpManager = new WarpManager(this, this.gridMovement, floor, this.player)
+    this.warpManager = new WarpManager(this, this.gridMovement, mapData, this.player)
+  }
 
+  private setupEventHandlers(): void {
     // Sync HUD when returning from challenge (HP may have changed)
     this.events.on('challenge-closed', () => {
       this.heartHud?.update(this.hpManager.hp)
@@ -148,14 +174,12 @@ export class GameScene extends Phaser.Scene {
     // Interaction system
     this.interaction = new InteractionSystem(this, this.npcs, this.gridMovement, this.player)
 
-    // Hide gatekeepers if floor is already complete
+    // Hide gatekeepers if map is already complete
     this.updateGatekeepers()
 
     // NPC interaction handler
     this.events.on('npc-interact', (npc: NPC) => {
-      // Prevent re-detection after dialog (both auto-detect and manual space press)
       this.behaviorSystem.markDetected(npc)
-      // Show "..." speech bubble while talking (no animation — scene pauses immediately)
       npc.showBubble(this, '...', false)
       this.talkingNpc = npc
       this.handleNPCInteraction(npc)
@@ -165,30 +189,30 @@ export class GameScene extends Phaser.Scene {
     // briefly block interactions, and re-check gatekeepers
     this.events.on('resume', () => {
       this.input.keyboard!.resetKeys()
-      // Hide the "..." bubble from the NPC we were talking to
       if (this.talkingNpc) {
         this.talkingNpc.hideBubble()
         this.talkingNpc = undefined
       }
-      // Don't re-enable anything if player is dead (death handler takes over)
       if (this.hpManager.isDead) return
       this.interaction.setEnabled(false)
       this.time.delayedCall(300, () => this.interaction.setEnabled(true))
       this.updateGatekeepers()
     })
+  }
 
-    // Camera
+  private setupCamera(map: Phaser.Tilemaps.Tilemap): void {
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels)
     this.cameras.main.startFollow(this.player.sprite, true)
     this.cameras.main.setRoundPixels(true)
+  }
 
-    // Floor title banner
+  private showMapName(mapData: MapData): void {
     const i18n = I18nManager.getInstance()
-    const floorNameKey = `${floor.id.replace('-', '_')}_name`
+    const mapNameKey = `${mapData.id.replace('-', '_')}_name`
     const banner = this.add.text(
       this.cameras.main.centerX,
       this.cameras.main.centerY - 40,
-      i18n.t(floorNameKey),
+      i18n.t(mapNameKey),
       { fontSize: '18px', color: '#ffffff', fontFamily: 'monospace', backgroundColor: '#000000aa', padding: { x: 12, y: 6 } }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(100)
 
@@ -200,7 +224,9 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => banner.destroy(),
       })
     })
+  }
 
+  private setupInputAndLifecycle(): void {
     // ESC to return to menu
     this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     this.escKey.on('down', () => this.scene.start('MenuScene'))
@@ -255,8 +281,8 @@ export class GameScene extends Phaser.Scene {
 
   private updateGatekeepers(): void {
     const save = SaveManager.getInstance()
-    const allDone = this.floor.requiredChallenges.length > 0
-      && this.floor.requiredChallenges.every(id => save.isChallengeCompleted(id))
+    const allDone = this.mapData.requiredChallenges.length > 0
+      && this.mapData.requiredChallenges.every(id => save.isChallengeCompleted(id))
 
     for (const npc of this.npcs) {
       if (npc.data.behavior !== 'gatekeeper') continue
@@ -330,13 +356,13 @@ export class GameScene extends Phaser.Scene {
       subtitle.style.opacity = '1'
     })
 
-    // Restart floor after delay — restore challenge state so NPCs re-trigger
+    // Restart map after delay — restore challenge state so NPCs re-trigger
     this.time.delayedCall(2000, () => {
       overlay.remove()
       SaveManager.getInstance().setCompletedChallenges(this.challengeStateOnEntry)
       // Use pristine snapshot so NPCs/blocks/hearts are in original positions
-      const cleanFloor: FloorData = JSON.parse(this.pristineFloor)
-      this.scene.start('GameScene', { floorId: cleanFloor.id, floorData: cleanFloor })
+      const cleanMap: MapData = JSON.parse(this.pristineMap)
+      this.scene.start('GameScene', { mapId: cleanMap.id, mapData: cleanMap })
     })
   }
 }

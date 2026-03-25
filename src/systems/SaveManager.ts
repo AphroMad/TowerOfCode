@@ -69,6 +69,15 @@ export class SaveManager {
     this.save()
   }
 
+  setCompanion(spriteKey: string | null): void {
+    this.data.companion = spriteKey
+    this.save()
+  }
+
+  getCompanion(): string | null {
+    return this.data.companion ?? null
+  }
+
   getCompletedChallenges(): string[] {
     return [...this.data.completedChallenges]
   }

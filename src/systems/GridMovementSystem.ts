@@ -17,6 +17,7 @@ export class GridMovementSystem {
   private lastDirection: Direction = 'down'
   private isSliding = false
   private pushBlockCallback: ((blockTileX: number, blockTileY: number, dir: Direction) => boolean) | null = null
+  private moveCompleteCallback: ((fromX: number, fromY: number, toX: number, toY: number, dir: Direction) => void) | null = null
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter
 
   constructor(
@@ -72,6 +73,10 @@ export class GridMovementSystem {
 
   setPushBlockCallback(cb: (blockTileX: number, blockTileY: number, dir: Direction) => boolean): void {
     this.pushBlockCallback = cb
+  }
+
+  onMoveComplete(cb: (fromX: number, fromY: number, toX: number, toY: number, dir: Direction) => void): void {
+    this.moveCompleteCallback = cb
   }
 
   removeTileEffect(tileX: number, tileY: number): void {
@@ -181,6 +186,9 @@ export class GridMovementSystem {
       return
     }
 
+    const fromX = this.player.tileX
+    const fromY = this.player.tileY
+
     this.isMoving = true
     this.lastDirection = dir
     this.player.facing = dir
@@ -203,6 +211,7 @@ export class GridMovementSystem {
       duration,
       ease: 'Linear',
       onComplete: () => {
+        this.moveCompleteCallback?.(fromX, fromY, targetTileX, targetTileY, dir)
         this.processLandingEffect()
       },
     })

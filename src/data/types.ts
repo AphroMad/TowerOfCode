@@ -191,4 +191,5 @@ export interface SaveData {
   language: 'en' | 'fr'
   currentMap: string
   completedChallenges: string[]
+  companion?: string | null  // spriteKey (e.g. 'zap'), null = no companion
 }

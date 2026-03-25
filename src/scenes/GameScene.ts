@@ -17,6 +17,7 @@ import { HeartHud } from '@/ui/HeartHud'
 import { BlockManager } from './managers/BlockManager'
 import { HeartPickupManager } from './managers/HeartPickupManager'
 import { WarpManager } from './managers/WarpManager'
+import { Companion } from '@/entities/Companion'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
@@ -38,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   private challengeStateOnEntry: string[] = []
   private isDead = false
   private talkingNpc?: NPC
+  private companion?: Companion
 
   constructor() {
     super({ key: 'GameScene' })
@@ -65,6 +67,7 @@ export class GameScene extends Phaser.Scene {
 
     const map = this.buildTilemap(mapData, mapW, mapH)
     this.setupPlayer(mapData, data?.fromDirection, data?.fromMapId)
+    this.setupCompanion()
     this.setupMovement(mapData, mapW)
     this.setupEntities(mapData)
     this.setupEventHandlers()
@@ -102,8 +105,26 @@ export class GameScene extends Phaser.Scene {
     this.player.facing = spawn.facing
   }
 
+  private setupCompanion(): void {
+    const spriteKey = SaveManager.getInstance().getCompanion()
+    if (!spriteKey) {
+      this.companion = undefined
+      return
+    }
+
+    const behind = Companion.behindPosition(this.player.tileX, this.player.tileY, this.player.facing)
+    this.companion = new Companion(this, spriteKey, behind.x, behind.y, this.player.facing)
+  }
+
   private setupMovement(mapData: MapData, mapW: number): void {
     this.gridMovement = new GridMovementSystem(this, this.player, this.wallLayer)
+
+    // Companion follows player 1 tile behind
+    if (this.companion) {
+      this.gridMovement.onMoveComplete((fromX, fromY, _toX, _toY, _dir) => {
+        this.companion?.walkToTile(this, fromX, fromY)
+      })
+    }
 
     if (mapData.tileEffects?.length) {
       this.gridMovement.setTileEffects(mapData.tileEffects)
@@ -273,6 +294,9 @@ export class GameScene extends Phaser.Scene {
 
     // Y-sort: sprites lower on screen render on top
     this.player.sprite.setDepth(this.player.sprite.y)
+    if (this.companion) {
+      this.companion.sprite.setDepth(this.companion.sprite.y)
+    }
     for (const npc of this.npcs) {
       npc.sprite.setDepth(npc.sprite.y)
     }

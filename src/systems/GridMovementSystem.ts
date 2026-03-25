@@ -17,6 +17,7 @@ export class GridMovementSystem {
   private lastDirection: Direction = 'down'
   private isSliding = false
   private pushBlockCallback: ((blockTileX: number, blockTileY: number, dir: Direction) => boolean) | null = null
+  private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter
 
   constructor(
     scene: Phaser.Scene,
@@ -28,6 +29,26 @@ export class GridMovementSystem {
     this.wallLayer = wallLayer
     this.cursors = scene.input.keyboard!.createCursorKeys()
     this.blockedTiles = new Set()
+
+    // Generate a tiny circle texture for dust particles (once per scene)
+    if (!scene.textures.exists('dust')) {
+      const gfx = scene.make.graphics({ x: 0, y: 0 }, false)
+      gfx.fillStyle(0xffffff, 1)
+      gfx.fillCircle(3, 3, 3)
+      gfx.generateTexture('dust', 6, 6)
+      gfx.destroy()
+    }
+
+    this.dustEmitter = scene.add.particles(0, 0, 'dust', {
+      speed: { min: 8, max: 20 },
+      scale: { start: 0.6, end: 0 },
+      alpha: { start: 0.5, end: 0 },
+      lifespan: 300,
+      tint: 0xc8b896,
+      emitting: false,
+      quantity: 3,
+    })
+    this.dustEmitter.setDepth(9999)
   }
 
   blockTile(tileX: number, tileY: number): void {
@@ -169,8 +190,13 @@ export class GridMovementSystem {
     this.isMoving = true
     this.lastDirection = dir
     this.player.facing = dir
-    if (!this.isSliding) this.player.playWalk(dir)
-    else this.player.playIdle()
+    if (!this.isSliding) {
+      this.player.playWalk(dir)
+      // Emit dust puffs at the player's feet
+      this.dustEmitter.emitParticleAt(this.player.sprite.x, this.player.sprite.y)
+    } else {
+      this.player.playIdle()
+    }
 
     const targetX = tileToPixel(targetTileX)
     const targetY = tileToPixel(targetTileY)

@@ -9,7 +9,7 @@ import { EditorState, type Extension } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { defaultKeymap } from '@codemirror/commands'
-import { PythonRunner } from './PythonRunner'
+import { PythonRunner } from '@/python'
 
 export function createCodeMirrorReadOnly(
   container: HTMLElement,

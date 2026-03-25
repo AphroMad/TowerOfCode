@@ -64,10 +64,8 @@
 - [x] Bubble removed when dialog/challenge closes
 
 ### Particle Effects
-- [ ] Teleport activation particles (sparkle burst)
-- [ ] Walking dust puffs
-- [ ] Challenge complete celebration particles
-- [ ] Collectible shimmer (if collectibles added)
+- [x] Teleport activation particles (sparkle burst)
+- [x] Walking dust puffs
 
 ---
 

@@ -69,6 +69,35 @@ export class TilePalette {
   }
 
   private buildLayerButtons(container: HTMLElement): void {
+    // Tool row: Brush / Eraser / Move / Help
+    const toolRow = document.createElement('div')
+    toolRow.style.display = 'flex'
+    toolRow.style.gap = '4px'
+    toolRow.style.marginBottom = '6px'
+    toolRow.style.flexWrap = 'wrap'
+
+    const tools: { label: string; key: 'brush' | 'eraser' | 'mover' }[] = [
+      { label: 'Brush (B)', key: 'brush' },
+      { label: 'Eraser (E)', key: 'eraser' },
+      { label: 'Move (M)', key: 'mover' },
+    ]
+    for (const tool of tools) {
+      const btn = document.createElement('button')
+      btn.textContent = tool.label
+      btn.className = 'editor-btn editor-btn-sm'
+      btn.addEventListener('click', () => {
+        this.state.mutate(d => { d.activeTool = tool.key })
+      })
+      this.state.onChange(() => {
+        btn.classList.toggle('active', this.state.snapshot.activeTool === tool.key)
+      })
+      toolRow.appendChild(btn)
+    }
+
+    container.appendChild(toolRow)
+    this.addSeparator(container)
+
+    // Layer row
     const row = document.createElement('div')
     row.style.display = 'flex'
     row.style.gap = '4px'
@@ -76,6 +105,7 @@ export class TilePalette {
     row.style.flexWrap = 'wrap'
 
     const layers: { label: string; key: LayerName }[] = [
+      { label: 'All', key: 'all' },
       { label: 'Ground (G)', key: 'ground' },
       { label: 'Objects (W)', key: 'walls' },
       { label: 'Effects (F)', key: 'effects' },
@@ -88,7 +118,9 @@ export class TilePalette {
       btn.addEventListener('click', () => {
         this.state.mutate(d => {
           d.activeLayer = layer.key
-          if (layer.key === 'entities') {
+          if (layer.key === 'all') {
+            d.activeTool = 'mover'
+          } else if (layer.key === 'entities') {
             d.activeTool = 'entity'
           } else {
             if (d.activeTool === 'entity') d.activeTool = 'brush'

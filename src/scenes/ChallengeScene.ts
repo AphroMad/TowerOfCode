@@ -2,18 +2,23 @@ import Phaser from 'phaser'
 import { createChallenge } from '@/challenges/ChallengeRegistry'
 import type { IChallenge } from '@/challenges/IChallenge'
 import type { ChallengeConfig } from '@/data/types'
+import { getChallenge } from '@/data/challenges'
 import { SaveManager } from '@/systems/SaveManager'
 import { I18nManager } from '@/i18n/I18nManager'
 import type { HpManager } from '@/systems/HpManager'
 
 interface ChallengeSceneData {
   challengeConfig: ChallengeConfig
+  challengeIds?: string[]
   returnScene?: string
 }
 
 export class ChallengeScene extends Phaser.Scene {
   private challenge: IChallenge | null = null
   private returnScene = 'GameScene'
+  private challengeIds: string[] = []
+  private currentStep = 0
+  private stepNav: HTMLDivElement | null = null
   private heartEls: HTMLSpanElement[] = []
   private heartContainer: HTMLDivElement | null = null
   private hpManager: HpManager | null = null
@@ -28,6 +33,10 @@ export class ChallengeScene extends Phaser.Scene {
 
     // Clean up DOM hearts on scene shutdown (e.g. game.destroy() from editor test mode)
     this.events.on('shutdown', () => {
+      if (this.stepNav) {
+        this.stepNav.remove()
+        this.stepNav = null
+      }
       if (this.heartContainer) {
         this.heartContainer.remove()
         this.heartContainer = null
@@ -52,6 +61,7 @@ export class ChallengeScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(11)
 
     this.returnScene = data.returnScene ?? 'GameScene'
+    this.challengeIds = data.challengeIds ?? []
 
     // Get HpManager from GameScene
     const gameScene = this.scene.get(this.returnScene) as { hpManager?: HpManager } | null
@@ -69,14 +79,55 @@ export class ChallengeScene extends Phaser.Scene {
       this.applyDamage()
     })
 
-    // Create challenge
+    this.launchChallenge(config)
+  }
+
+  private launchChallenge(config: ChallengeConfig): void {
+    this.currentStep = this.challengeIds.indexOf(config.id)
+    if (this.currentStep === -1) this.currentStep = 0
+
     this.challenge = createChallenge(config.type)
-    this.challenge.create(this, config, (success) => {
-      if (success) {
-        SaveManager.getInstance().completeChallenge(config.id)
+    this.challenge.create(this, config, (success) => this.onChallengeComplete(success, config))
+
+    if (this.challengeIds.length > 1) {
+      this.updateStepNav()
+    }
+  }
+
+  private onChallengeComplete(success: boolean, config: ChallengeConfig): void {
+    if (success) {
+      SaveManager.getInstance().completeChallenge(config.id)
+
+      if (this.challengeIds.length > 1) {
+        const save = SaveManager.getInstance()
+        const nextId = this.challengeIds.find(id => !save.isChallengeCompleted(id))
+        if (nextId) {
+          const nextConfig = getChallenge(nextId)
+          if (nextConfig) {
+            this.currentStep = this.challengeIds.indexOf(nextId)
+            setTimeout(() => this.chainNextChallenge(nextConfig), 50)
+            return
+          }
+        }
       }
-      this.closeScene()
-    })
+    }
+    this.closeScene()
+  }
+
+  private chainNextChallenge(config: ChallengeConfig): void {
+    const panel = this.challenge?.getPanel() ?? null
+    if (this.challenge) {
+      this.challenge.softDestroy()
+      this.challenge = null
+    }
+
+    this.challenge = createChallenge(config.type)
+    if (panel) {
+      this.challenge.createInPanel(this, config, (success) => this.onChallengeComplete(success, config), panel)
+    } else {
+      this.challenge.create(this, config, (success) => this.onChallengeComplete(success, config))
+    }
+    this.updateStepNav()
   }
 
   update(): void {
@@ -90,7 +141,7 @@ export class ChallengeScene extends Phaser.Scene {
 
     this.heartContainer = document.createElement('div')
     this.heartContainer.style.cssText =
-      'position:fixed;top:8px;right:12px;z-index:10002;display:flex;gap:4px;pointer-events:none;'
+      'position:fixed;top:8px;left:12px;z-index:10002;display:flex;gap:4px;pointer-events:none;'
     document.body.appendChild(this.heartContainer)
 
     this.heartEls = []
@@ -145,7 +196,68 @@ export class ChallengeScene extends Phaser.Scene {
     panel.addEventListener('animationend', () => panel.classList.remove('hit'), { once: true })
   }
 
+  private updateStepNav(): void {
+    if (this.challengeIds.length <= 1) return
+
+    const panel = this.challenge?.getPanel()
+    if (!panel) return
+
+    // Remove old nav if it exists inside this panel
+    if (this.stepNav && this.stepNav.parentElement) {
+      this.stepNav.remove()
+    }
+
+    const save = SaveManager.getInstance()
+    const total = this.challengeIds.length
+    const step = this.currentStep
+
+    this.stepNav = document.createElement('div')
+    this.stepNav.style.cssText =
+      'display:flex;align-items:center;justify-content:center;gap:12px;' +
+      'padding:8px 0;margin-bottom:8px;border-bottom:1px solid #333;'
+
+    const btnBase = 'padding:4px 12px;font-size:14px;min-width:32px;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-weight:bold;'
+    const btnActive = btnBase + 'background:#4488cc;color:#fff;'
+    const btnDisabled = btnBase + 'background:#2a2a2a;color:#444;cursor:default;'
+
+    // Prev button
+    const prevBtn = document.createElement('button')
+    prevBtn.textContent = '\u2039'
+    prevBtn.style.cssText = step === 0 ? btnDisabled : btnActive
+    prevBtn.disabled = step === 0
+    prevBtn.addEventListener('click', () => this.goToStep(step - 1))
+    this.stepNav.appendChild(prevBtn)
+
+    // Step indicator
+    const label = document.createElement('span')
+    label.style.cssText = 'color:#4488cc;font-family:monospace;font-size:16px;font-weight:bold;'
+    label.textContent = `${step + 1} / ${total}`
+    this.stepNav.appendChild(label)
+
+    // Next button (only enabled if that challenge is already completed)
+    const canGoNext = step < total - 1 && save.isChallengeCompleted(this.challengeIds[step])
+    const nextBtn = document.createElement('button')
+    nextBtn.textContent = '\u203A'
+    nextBtn.style.cssText = canGoNext ? btnActive : btnDisabled
+    nextBtn.disabled = !canGoNext
+    nextBtn.addEventListener('click', () => this.goToStep(step + 1))
+    this.stepNav.appendChild(nextBtn)
+
+    // Insert at top of panel
+    panel.insertBefore(this.stepNav, panel.firstChild)
+  }
+
+  private goToStep(step: number): void {
+    if (step < 0 || step >= this.challengeIds.length) return
+    const config = getChallenge(this.challengeIds[step])
+    if (!config) return
+    this.currentStep = step
+    this.chainNextChallenge(config)
+  }
+
   private closeScene(): void {
+    // Clean up step nav
+    this.stepNav = null
     // Clean up DOM hearts
     if (this.heartContainer) {
       this.heartContainer.remove()

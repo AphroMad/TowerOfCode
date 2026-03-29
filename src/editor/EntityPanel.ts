@@ -3,7 +3,7 @@ import type { UndoManager } from './UndoManager'
 import type { Direction, NPCData, NpcBehavior, TeleportRole } from '@/data/types'
 import { getAllMapIds } from '@/data/maps/MapRegistry'
 import { I18nManager } from '@/i18n/I18nManager'
-import { getAllChallengeIds } from '@/data/challenges'
+import { getAllChallenges } from '@/data/challenges'
 import { getSpriteKeys } from '@/data/sprites/SpriteRegistry'
 import { getTilesByCategory } from '@/data/tiles/TileRegistry'
 
@@ -48,6 +48,21 @@ export class EntityPanel {
     addBtn('+ Teleport', 'teleport')
     addBtn('+ Block', 'block')
     addBtn('+ Heart', 'heart')
+
+    const ideaBtn = document.createElement('button')
+    ideaBtn.textContent = '+ Idea'
+    ideaBtn.className = 'editor-btn'
+    ideaBtn.style.background = '#997a00'
+    ideaBtn.style.color = '#fff'
+    ideaBtn.addEventListener('click', () => {
+      this.state.mutate(d => {
+        d.placingEntity = 'idea'
+        d.activeTool = 'entity'
+        d.activeLayer = 'entities'
+      })
+    })
+    btnRow.appendChild(ideaBtn)
+
     this.wrapper.appendChild(btnRow)
 
     // Properties form
@@ -180,23 +195,16 @@ export class EntityPanel {
         this.state.emit()
       })
 
-      // Challenge dropdown
-      const challengeIds = ['(none)', ...getAllChallengeIds()]
-      this.addSelect('Challenge', challengeIds, npc.challengeId ?? '(none)', (v) => {
-        npc.challengeId = v === '(none)' ? undefined : v
-        this.state.emit()
-      })
-
       // Visual properties
       this.addSelect('Sprite', getSpriteKeys(), npc.spriteKey, (v) => { npc.spriteKey = v; this.state.emit() })
       this.addSelect('Facing', ['down', 'up', 'left', 'right'], npc.facing, (v) => { npc.facing = v as Direction; this.state.emit() })
 
       // Behavior
-      const behaviors: NpcBehavior[] = ['static', 'detect', 'lookout', 'patrol', 'gatekeeper']
+      const behaviors: NpcBehavior[] = ['static', 'detect', 'lookout', 'lookout-random', 'patrol', 'gatekeeper']
       this.addSelect('Behavior', behaviors, npc.behavior, (v) => {
         npc.behavior = v as NpcBehavior
         // Init defaults for new behavior
-        if (v === 'lookout' && !npc.lookoutPattern) {
+        if ((v === 'lookout' || v === 'lookout-random') && !npc.lookoutPattern) {
           npc.lookoutPattern = [npc.facing]
           npc.lookoutTempo = 2
         }
@@ -207,11 +215,14 @@ export class EntityPanel {
       })
 
       // Behavior-specific sub-panels
-      if (npc.behavior === 'lookout') {
+      if (npc.behavior === 'lookout' || npc.behavior === 'lookout-random') {
         this.buildLookoutPanel(npc)
       } else if (npc.behavior === 'patrol') {
         this.buildPatrolPanel(npc)
       }
+
+      // Challenge multi-select (last before delete)
+      this.buildChallengePanel(npc)
 
       this.addDeleteButton(() => {
         this.undo.save()
@@ -337,6 +348,25 @@ export class EntityPanel {
         d.hearts.splice(d.selectedEntityIndex, 1)
         this.state.deselectEntity()
       })
+    } else if (d.selectedEntityType === 'idea') {
+      const idea = d.ideas[d.selectedEntityIndex]
+      if (!idea) return
+      title.textContent = 'Idea (editor-only)'
+      title.style.color = '#ffcc00'
+      this.formContainer.appendChild(title)
+
+      this.addInfo(`Position: (${idea.tileX}, ${idea.tileY})`)
+
+      this.addInput('Note', idea.note ?? '', (v) => {
+        idea.note = v || undefined
+        this.state.emit()
+      })
+
+      this.addDeleteButton(() => {
+        this.undo.save()
+        d.ideas.splice(d.selectedEntityIndex, 1)
+        this.state.deselectEntity()
+      })
     }
   }
 
@@ -413,6 +443,105 @@ export class EntityPanel {
         this.state.emit()
       })
       this.formContainer.appendChild(clearBtn)
+    }
+  }
+
+  private buildChallengePanel(npc: NPCData): void {
+    const challenges = getAllChallenges()
+    const selected = npc.challengeIds ?? []
+
+    const label = document.createElement('div')
+    label.style.fontSize = '11px'
+    label.style.color = '#ccc'
+    label.style.margin = '6px 0 4px'
+    label.textContent = 'Challenges:'
+    this.formContainer.appendChild(label)
+
+    // List of currently selected challenges with remove buttons
+    if (selected.length > 0) {
+      const list = document.createElement('div')
+      list.style.display = 'flex'
+      list.style.flexDirection = 'column'
+      list.style.gap = '2px'
+      list.style.marginBottom = '4px'
+
+      for (let i = 0; i < selected.length; i++) {
+        const id = selected[i]
+        const config = challenges.find(c => c.id === id)
+        const typeLabel = config ? config.type : '???'
+
+        const row = document.createElement('div')
+        row.style.display = 'flex'
+        row.style.alignItems = 'center'
+        row.style.gap = '4px'
+        row.style.fontSize = '11px'
+
+        const text = document.createElement('span')
+        text.style.color = '#aaa'
+        text.style.flex = '1'
+        text.style.overflow = 'hidden'
+        text.style.textOverflow = 'ellipsis'
+        text.style.whiteSpace = 'nowrap'
+        text.textContent = `${id} — ${typeLabel}`
+        row.appendChild(text)
+
+        const removeBtn = document.createElement('button')
+        removeBtn.textContent = 'x'
+        removeBtn.className = 'editor-btn editor-btn-sm editor-btn-danger'
+        removeBtn.style.padding = '0 4px'
+        removeBtn.style.fontSize = '10px'
+        removeBtn.style.lineHeight = '16px'
+        removeBtn.style.minWidth = '18px'
+        const idx = i
+        removeBtn.addEventListener('click', () => {
+          if (!npc.challengeIds) return
+          npc.challengeIds.splice(idx, 1)
+          if (npc.challengeIds.length === 0) npc.challengeIds = undefined
+          this.state.emit()
+        })
+        row.appendChild(removeBtn)
+
+        list.appendChild(row)
+      }
+      this.formContainer.appendChild(list)
+    }
+
+    // Add dropdown
+    const availableChallenges = challenges.filter(c => !selected.includes(c.id))
+    if (availableChallenges.length > 0) {
+      const row = document.createElement('div')
+      row.className = 'prop-row'
+
+      const lbl = document.createElement('label')
+      lbl.textContent = 'Add'
+      lbl.className = 'prop-label'
+
+      const select = document.createElement('select')
+      select.className = 'prop-input'
+      const placeholder = document.createElement('option')
+      placeholder.value = ''
+      placeholder.textContent = '-- select --'
+      placeholder.disabled = true
+      placeholder.selected = true
+      select.appendChild(placeholder)
+
+      for (const ch of availableChallenges) {
+        const o = document.createElement('option')
+        o.value = ch.id
+        o.textContent = `${ch.id} — ${ch.type}`
+        select.appendChild(o)
+      }
+
+      select.addEventListener('change', () => {
+        if (!select.value) return
+        if (!npc.challengeIds) npc.challengeIds = []
+        npc.challengeIds.push(select.value)
+        this.state.emit()
+      })
+
+      row.appendChild(lbl)
+      row.appendChild(select)
+      this.formContainer.appendChild(row)
     }
   }
 

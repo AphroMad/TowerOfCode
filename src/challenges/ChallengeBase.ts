@@ -23,23 +23,50 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
     this.scene = _scene
     this.attempts = 0
     const panel = this.renderer.createOverlay(_scene)
+    this.initPanel(panel, _scene, config)
+  }
 
-    // Attempt counter (hidden until first wrong attempt)
+  createInPanel(
+    _scene: Phaser.Scene,
+    config: ChallengeConfig,
+    onComplete: (success: boolean) => void,
+    panel: HTMLDivElement,
+  ): void {
+    this.onComplete = onComplete
+    this.scene = _scene
+    this.attempts = 0
+    this.renderer.adoptPanel(panel)
+    this.initPanel(panel, _scene, config)
+  }
+
+  private initPanel(panel: HTMLDivElement, scene: Phaser.Scene, config: ChallengeConfig): void {
     this.attemptEl = document.createElement('span')
     this.attemptEl.className = 'cl-attempt-counter'
     this.attemptEl.style.display = 'none'
     panel.appendChild(this.attemptEl)
-
-    this.onCreate(_scene, config as C, panel)
+    this.onCreate(scene, config as C, panel)
   }
 
   update(): void {}
 
+  /** Full cleanup — removes the overlay from DOM */
   destroy(): void {
     this.clearTimers()
     this.unbindKeys()
     this.onDestroy()
     this.renderer.destroyOverlay()
+  }
+
+  /** Soft cleanup — keeps the overlay, clears content for next challenge */
+  softDestroy(): void {
+    this.clearTimers()
+    this.unbindKeys()
+    this.onDestroy()
+    this.renderer.clearPanel()
+  }
+
+  getPanel(): HTMLDivElement | null {
+    return this.renderer.getPanel()
   }
 
   protected abstract onCreate(
@@ -69,6 +96,21 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
     this.scene.events.emit('challenge-wrong-answer')
   }
 
+  /** Show a "Continue" button at the bottom of the panel after success */
+  protected showDoneButton(): void {
+    const panel = this.renderer.getPanel()
+    if (!panel) return
+    const bar = document.createElement('div')
+    bar.className = 'cl-hint-bar'
+    bar.style.marginTop = '12px'
+    const btn = document.createElement('button')
+    btn.className = 'cl-btn-primary'
+    btn.textContent = this.t('challenge_btn_continue')
+    btn.addEventListener('click', () => this.onComplete(true))
+    bar.appendChild(btn)
+    panel.appendChild(bar)
+  }
+
   protected addTimer(callback: () => void, ms: number): ReturnType<typeof setTimeout> {
     const handle = setTimeout(callback, ms)
     this.pendingTimers.push(handle)
@@ -82,38 +124,15 @@ export abstract class ChallengeBase<C extends ChallengeConfig = ChallengeConfig>
 
   protected bindKeys(opts: {
     onKey: (e: KeyboardEvent) => void
-    onEscape?: () => void
     isAnswered?: () => boolean
   }): void {
     this.unbindKeys()
     this.boundKeyHandler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if ((e.target as HTMLElement)?.closest('.cm-editor')) return
-
-      if (e.code === 'Escape') {
-        e.preventDefault()
-        if (opts.onEscape) {
-          opts.onEscape()
-        } else {
-          const answered = opts.isAnswered ? opts.isAnswered() : false
-          this.onComplete(answered)
-        }
-        return
-      }
-
+      if (e.code === 'Escape') { e.preventDefault(); return }
       if (opts.isAnswered?.()) return
       opts.onKey(e)
-    }
-    document.addEventListener('keydown', this.boundKeyHandler)
-  }
-
-  protected bindEscapeOnly(onEscape: () => void): void {
-    this.unbindKeys()
-    this.boundKeyHandler = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') {
-        e.preventDefault()
-        onEscape()
-      }
     }
     document.addEventListener('keydown', this.boundKeyHandler)
   }

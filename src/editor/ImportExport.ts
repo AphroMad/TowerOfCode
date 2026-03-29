@@ -45,6 +45,7 @@ export class ImportExport {
       teleports: d.teleports,
       blocks: d.blocks,
       hearts: d.hearts,
+      ideas: d.ideas,
       startingHp: d.startingHp,
     }
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload))
@@ -79,14 +80,21 @@ export class ImportExport {
             })()
           : new Array(size).fill(0),
         playerSpawn: data.playerSpawn || null,
-        npcs: (data.npcs || []).map((n: Record<string, unknown>) => ({
-          ...n,
-          name: n.name || n.npcId || 'NPC',
-        })),
+        npcs: (data.npcs || []).map((n: Record<string, unknown>) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const npc: any = { ...n, name: n.name || n.npcId || 'NPC' }
+          // Migration: old single challengeId → challengeIds array
+          if (npc.challengeId && !npc.challengeIds) {
+            npc.challengeIds = [npc.challengeId]
+            delete npc.challengeId
+          }
+          return npc
+        }),
         stairs: data.stairs || [],
         teleports: data.teleports || [],
         blocks: data.blocks || [],
         hearts: data.hearts || [],
+        ideas: data.ideas || [],
         startingHp: data.startingHp || 0,
       })
       return true
@@ -139,7 +147,7 @@ export class ImportExport {
         `      behavior: '${n.behavior}'`,
       ]
       if (n.dialogKey) fields.push(`      dialogKey: '${n.dialogKey}'`)
-      if (n.challengeId) fields.push(`      challengeId: '${n.challengeId}'`)
+      if (n.challengeIds?.length) fields.push(`      challengeIds: [${n.challengeIds.map(id => `'${this.esc(id)}'`).join(', ')}]`)
       if (n.behavior === 'lookout' && n.lookoutPattern?.length) {
         fields.push(`      lookoutPattern: [${n.lookoutPattern.map(d => `'${d}'`).join(', ')}]`)
         if (n.lookoutTempo !== undefined) fields.push(`      lookoutTempo: ${n.lookoutTempo}`)
@@ -169,8 +177,7 @@ export class ImportExport {
     }).join(',\n')
 
     const required = d.npcs
-      .map(n => n.challengeId)
-      .filter((id): id is string => !!id)
+      .flatMap(n => n.challengeIds ?? [])
       .map(id => `    '${id}'`)
       .join(',\n')
 
@@ -317,8 +324,15 @@ ${stairStr}
           }
           const dialogKey = this.extractStr(block, 'dialogKey')
           if (dialogKey) npc.dialogKey = dialogKey
-          const challengeId = this.extractStr(block, 'challengeId')
-          if (challengeId) npc.challengeId = challengeId
+          // Parse challengeIds array (new format)
+          const challengeIdsMatch = block.match(/challengeIds:\s*\[([^\]]*)\]/)
+          if (challengeIdsMatch) {
+            npc.challengeIds = [...challengeIdsMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1])
+          } else {
+            // Migration: old single challengeId → challengeIds array
+            const challengeId = this.extractStr(block, 'challengeId')
+            if (challengeId) npc.challengeIds = [challengeId]
+          }
           // Lookout fields
           const patternMatch = block.match(/lookoutPattern:\s*\[([^\]]*)\]/)
           if (patternMatch) {

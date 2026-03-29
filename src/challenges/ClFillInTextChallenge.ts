@@ -82,7 +82,6 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
     // Keyboard navigation
     this.bindKeys({
       isAnswered: () => this.answered,
-      onEscape: () => this.onComplete(this.answered),
       onKey: (e) => {
         if (e.code === 'ArrowLeft') {
           e.preventDefault()
@@ -264,7 +263,8 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
       success.textContent = this.t('challenge_feedback_correct')
       this.feedbackArea.appendChild(success)
 
-      this.hintBar.textContent = this.t('challenge_hint_esc_close')
+      this.hintBar.textContent = ''
+      this.showDoneButton()
     } else {
       const fail = document.createElement('div')
       fail.className = 'cl-failure'

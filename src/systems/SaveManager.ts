@@ -2,7 +2,7 @@ import { SAVE_KEY } from '@/config/game.config'
 import type { SaveData } from '@/data/types'
 
 const DEFAULT_SAVE: SaveData = {
-  language: 'en',
+  language: 'fr',
   currentMap: 'map-01',
   completedChallenges: [],
 }

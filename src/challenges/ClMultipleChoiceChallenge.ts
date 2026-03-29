@@ -80,7 +80,6 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
   private setupKeyboard(): void {
     this.bindKeys({
       isAnswered: () => this.answered,
-      onEscape: () => this.onComplete(this.answered),
       onKey: (e) => {
         if (e.code === 'ArrowUp') {
           e.preventDefault()
@@ -156,7 +155,8 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
 
     if (correct) {
       this.answered = true
-      this.hintBar.textContent = this.t('challenge_hint_esc_close')
+      this.hintBar.textContent = ''
+      this.showDoneButton()
     } else {
       // Red stays until user clicks another option or navigates with keyboard
       this.wrongShown = true

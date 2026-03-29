@@ -5,7 +5,7 @@ export interface LocalizedText {
 
 export type Direction = 'down' | 'up' | 'left' | 'right'
 
-export type NpcBehavior = 'static' | 'detect' | 'lookout' | 'patrol' | 'gatekeeper'
+export type NpcBehavior = 'static' | 'detect' | 'lookout' | 'lookout-random' | 'patrol' | 'gatekeeper'
 
 export interface NPCData {
   name: string
@@ -15,7 +15,7 @@ export interface NPCData {
   spriteKey: string
   behavior: NpcBehavior
   dialogKey?: string
-  challengeId?: string
+  challengeIds?: string[]
   lookoutPattern?: Direction[]
   lookoutTempo?: number
   patrolPath?: { x: number; y: number }[]
@@ -176,6 +176,7 @@ export interface MapData {
   groundLayer: string[]
   wallsLayer: string[]
   wallsCollision?: boolean[]
+  noCollision?: { tileX: number; tileY: number }[]  // sparse format (exported by editor)
   playerStart: { tileX: number; tileY: number; facing: Direction }
   npcs: NPCData[]
   requiredChallenges: string[]

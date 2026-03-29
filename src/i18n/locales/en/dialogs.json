@@ -1,4 +1,9 @@
 {
+  "welcome_npc": [
+    "Hey! Welcome to the Tower of Code!",
+    "This place is full of challenges to sharpen your coding skills.",
+    "Head through that warp point when you're ready to begin!"
+  ],
   "hint_npc_01": [
     "Hey there! I'm also a student here.",
     "Tip: Variables can store different types of data - numbers, text, and more!",

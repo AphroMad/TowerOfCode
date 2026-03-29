@@ -7,6 +7,7 @@ interface DialogSceneData {
   dialogKey?: string
   npcName?: string
   challengeConfig?: ChallengeConfig
+  challengeIds?: string[]
   challengeCompleted?: boolean
 }
 
@@ -139,6 +140,7 @@ export class DialogScene extends Phaser.Scene {
         this.scene.stop()
         this.scene.launch('ChallengeScene', {
           challengeConfig: this.sceneData.challengeConfig,
+          challengeIds: this.sceneData.challengeIds,
         })
       }
     } else {
@@ -200,6 +202,7 @@ export class DialogScene extends Phaser.Scene {
       this.scene.stop()
       this.scene.launch('ChallengeScene', {
         challengeConfig: this.sceneData.challengeConfig,
+        challengeIds: this.sceneData.challengeIds,
       })
     } else {
       this.scene.stop()

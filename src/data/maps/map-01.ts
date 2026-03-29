@@ -2,11 +2,13 @@ import type { MapData } from '@/data/types'
 
 // prettier-ignore
 const G = 'ground/basic/'
+const R = 'objects/rock'
+const W = 'objects/portal/warp'
 
 // prettier-ignore
 export const map01: MapData = {
   id: 'map-01',
-  name: 'The Entrance Hall',
+  name: 'The Entrance',
   groundLayer: [
     G+'9', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'7', G+'8',
     G+'6', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'4',
@@ -24,21 +26,29 @@ export const map01: MapData = {
     G+'6', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'2', G+'4',
     G+'5', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'1', G+'3',
   ],
-  wallsLayer: new Array(300).fill(''),
+  wallsLayer: (() => {
+    const w = new Array(300).fill('')
+    w[5 * 20 + 10] = R  // rock at (10, 5)
+    w[6 * 20 + 10] = W  // warp tile at (10, 6), 1 below the rock
+    return w
+  })(),
+  noCollision: [
+    { tileX: 10, tileY: 6 },  // warp tile is walkable
+  ],
   playerStart: { tileX: 10, tileY: 12, facing: 'up' },
   npcs: [
     {
-      name: 'Student',
+      name: 'Guide',
       tileX: 10,
-      tileY: 7,
+      tileY: 10,
       spriteKey: 'npc',
       facing: 'down',
-      behavior: 'static',
-      dialogKey: 'hint_npc_01',
+      behavior: 'detect',
+      dialogKey: 'welcome_npc',
     },
   ],
   requiredChallenges: [],
   stairs: [
-    { tileX: 10, tileY: 1, targetMapId: 'map-03' },
+    { tileX: 10, tileY: 6, targetMapId: 'map-00' },
   ],
 }

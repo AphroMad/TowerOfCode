@@ -157,8 +157,7 @@ export class TestMode {
       },
       npcs: d.npcs.map(n => ({ ...n })),
       requiredChallenges: d.npcs
-        .map(n => n.challengeId)
-        .filter((id): id is string => !!id),
+        .flatMap(n => n.challengeIds ?? []),
       tileEffects: this.buildTileEffects(d.effectsLayer),
       stairs: d.stairs.map(s => ({ ...s })),
       teleports: d.teleports.map(t => ({ ...t })),

@@ -22,6 +22,7 @@ export class EditorCanvas {
   private imagesLoaded = false
   private painting = false
   private lastPaintTile: { x: number; y: number } | null = null
+  private draggingEntity: { type: string; index: number; startX: number; startY: number } | null = null
   private mover: MoverTool
   private entityRenderer: EntityRenderer
 
@@ -119,6 +120,8 @@ export class EditorCanvas {
               md.blocks.splice(entity.index, 1)
             } else if (entity.type === 'heart') {
               md.hearts.splice(entity.index, 1)
+            } else if (entity.type === 'idea') {
+              md.ideas.splice(entity.index, 1)
             }
           })
           this.state.deselectEntity()
@@ -187,6 +190,11 @@ export class EditorCanvas {
             md.hearts.push({ tileX: tile.x, tileY: tile.y })
           })
           this.state.selectEntity('heart', this.state.snapshot.hearts.length - 1)
+        } else if (d.placingEntity === 'idea') {
+          this.state.mutateQuiet(md => {
+            md.ideas.push({ tileX: tile.x, tileY: tile.y })
+          })
+          this.state.selectEntity('idea', this.state.snapshot.ideas.length - 1)
         }
         this.state.mutate(md => { md.placingEntity = null })
         this.undo.save()
@@ -206,11 +214,13 @@ export class EditorCanvas {
         }
       }
 
-      // Entity tool: click to select existing
+      // Entity tool: click to select, drag to move
       if (d.activeTool === 'entity') {
         const entity = this.state.findEntityAt(tile.x, tile.y)
         if (entity) {
           this.state.selectEntity(entity.type, entity.index)
+          this.draggingEntity = { type: entity.type, index: entity.index, startX: tile.x, startY: tile.y }
+          this.undo.save()
         } else {
           this.state.deselectEntity()
         }
@@ -240,6 +250,43 @@ export class EditorCanvas {
       const tile = this.tileFromMouse(e)
       this.state.mutateQuiet(d => { d.hoverTile = tile })
 
+      // Entity drag
+      if (this.draggingEntity && tile) {
+        const ent = this.draggingEntity
+        if (tile.x !== ent.startX || tile.y !== ent.startY) {
+          this.state.mutateQuiet(d => {
+            if (ent.type === 'player' && d.playerSpawn) {
+              d.playerSpawn.tileX = tile.x
+              d.playerSpawn.tileY = tile.y
+            } else if (ent.type === 'npc' && d.npcs[ent.index]) {
+              d.npcs[ent.index].tileX = tile.x
+              d.npcs[ent.index].tileY = tile.y
+            } else if (ent.type === 'stair' && d.stairs[ent.index]) {
+              d.stairs[ent.index].tileX = tile.x
+              d.stairs[ent.index].tileY = tile.y
+            } else if (ent.type === 'teleport' && d.teleports[ent.index]) {
+              d.teleports[ent.index].tileX = tile.x
+              d.teleports[ent.index].tileY = tile.y
+            } else if (ent.type === 'block' && d.blocks[ent.index]) {
+              d.blocks[ent.index].tileX = tile.x
+              d.blocks[ent.index].tileY = tile.y
+            } else if (ent.type === 'heart' && d.hearts[ent.index]) {
+              d.hearts[ent.index].tileX = tile.x
+              d.hearts[ent.index].tileY = tile.y
+            } else if (ent.type === 'idea' && d.ideas[ent.index]) {
+              d.ideas[ent.index].tileX = tile.x
+              d.ideas[ent.index].tileY = tile.y
+            }
+          })
+          ent.startX = tile.x
+          ent.startY = tile.y
+          this.state.emit()
+        }
+        this.canvas.style.cursor = 'grabbing'
+        this.render()
+        return
+      }
+
       // Mover drag
       if (this.state.snapshot.activeTool === 'mover' && tile) {
         const cursor = this.mover.onMouseMove(tile)
@@ -256,6 +303,14 @@ export class EditorCanvas {
     })
 
     this.canvas.addEventListener('mouseup', () => {
+      // Entity drag end
+      if (this.draggingEntity) {
+        this.draggingEntity = null
+        this.undo.save()
+        this.render()
+        return
+      }
+
       // Mover: finalize selection or apply move
       if (this.mover.onMouseUp()) {
         this.render()
@@ -278,6 +333,10 @@ export class EditorCanvas {
 
     this.canvas.addEventListener('mouseleave', () => {
       this.state.mutateQuiet(d => { d.hoverTile = null })
+      if (this.draggingEntity) {
+        this.draggingEntity = null
+        this.undo.save()
+      }
       if (this.mover.phase === 'selecting') {
         this.mover.reset()
       }
@@ -334,20 +393,20 @@ export class EditorCanvas {
 
     // Ground layer
     if (d.groundVisible) {
-      const alpha = d.activeLayer === 'ground' ? 1 : d.activeLayer === 'entities' ? 0.6 : 0.4
+      const alpha = (d.activeLayer === 'ground' || d.activeLayer === 'all') ? 1 : d.activeLayer === 'entities' ? 0.6 : 0.4
       this.drawLayer(d.groundLayer, s, alpha)
     }
 
     // Walls layer
     if (d.wallsVisible) {
-      const alpha = d.activeLayer === 'walls' ? 1 : d.activeLayer === 'entities' ? 0.6 : 0.4
+      const alpha = (d.activeLayer === 'walls' || d.activeLayer === 'all') ? 1 : d.activeLayer === 'entities' ? 0.6 : 0.4
       this.drawLayer(d.wallsLayer, s, alpha)
       this.drawCollisionOverlay(s)
     }
 
     // Effects layer
     if (d.effectsVisible) {
-      const alpha = d.activeLayer === 'effects' ? 1 : 0.4
+      const alpha = (d.activeLayer === 'effects' || d.activeLayer === 'all') ? 1 : 0.4
       this.drawEffectsLayer(d.effectsLayer, s, alpha)
     }
 

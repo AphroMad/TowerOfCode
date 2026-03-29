@@ -1,6 +1,5 @@
-import type { EditorState } from './EditorState'
+import type { EditorState, EntityType, LayerName } from './EditorState'
 import type { UndoManager } from './UndoManager'
-import type { EntityType } from './EditorState'
 
 export type MoverPhase = 'idle' | 'selecting' | 'selected' | 'moving'
 
@@ -25,6 +24,7 @@ export class MoverTool {
   private entities: { type: EntityType; localX: number; localY: number }[] = []
   private dragStart: { x: number; y: number } | null = null
   private offset = { dx: 0, dy: 0 }
+  private layer: LayerName = 'all'
 
   constructor(state: EditorState, undo: UndoManager) {
     this.state = state
@@ -34,6 +34,7 @@ export class MoverTool {
   onMouseDown(tile: { x: number; y: number }): boolean {
     if (this.phase === 'idle' || this.phase === 'selecting') {
       this.phase = 'selecting'
+      this.layer = this.state.snapshot.activeLayer
       this.selStart = { x: tile.x, y: tile.y }
       this.selEnd = { x: tile.x, y: tile.y }
       this.rect = null
@@ -192,6 +193,7 @@ export class MoverTool {
 
     const d = this.state.snapshot
     const mW = d.mapWidth
+    const L = this.layer
 
     this.tiles = []
     this.walls = []
@@ -202,14 +204,35 @@ export class MoverTool {
     for (let row = 0; row < h; row++) {
       for (let col = 0; col < w; col++) {
         const idx = (y1 + row) * mW + (x1 + col)
-        this.tiles.push(d.groundLayer[idx])
-        this.walls.push(d.wallsLayer[idx])
-        this.collision.push(d.wallsCollision[idx])
-        this.effects.push(d.effectsLayer[idx])
+        this.tiles.push((L === 'all' || L === 'ground') ? d.groundLayer[idx] : '')
+        this.walls.push((L === 'all' || L === 'walls') ? d.wallsLayer[idx] : '')
+        this.collision.push((L === 'all' || L === 'walls') ? d.wallsCollision[idx] : true)
+        this.effects.push((L === 'all' || L === 'effects') ? d.effectsLayer[idx] : 0)
       }
     }
 
-    // Capture entities in selection
+    // Capture entities only on 'all' or 'entities' layer
+    if (L === 'all' || L === 'entities') {
+      this.captureEntities(d, x1, y1, x2, y2)
+    }
+
+    const hasContent = this.tiles.some(t => t !== '')
+      || this.walls.some(t => t !== '')
+      || this.effects.some(e => e !== 0)
+      || this.entities.length > 0
+
+    if (hasContent) {
+      this.rect = { x: x1, y: y1, w, h }
+      this.phase = 'selected'
+    } else {
+      this.reset()
+    }
+  }
+
+  private captureEntities(
+    d: EditorState['snapshot'],
+    x1: number, y1: number, x2: number, y2: number,
+  ): void {
     if (d.playerSpawn && d.playerSpawn.tileX >= x1 && d.playerSpawn.tileX <= x2
         && d.playerSpawn.tileY >= y1 && d.playerSpawn.tileY <= y2) {
       this.entities.push({ type: 'player', localX: d.playerSpawn.tileX - x1, localY: d.playerSpawn.tileY - y1 })
@@ -239,17 +262,10 @@ export class MoverTool {
         this.entities.push({ type: 'heart', localX: heart.tileX - x1, localY: heart.tileY - y1 })
       }
     }
-
-    const hasContent = this.tiles.some(t => t !== '')
-      || this.walls.some(t => t !== '')
-      || this.effects.some(e => e !== 0)
-      || this.entities.length > 0
-
-    if (hasContent) {
-      this.rect = { x: x1, y: y1, w, h }
-      this.phase = 'selected'
-    } else {
-      this.reset()
+    for (const idea of d.ideas) {
+      if (idea.tileX >= x1 && idea.tileX <= x2 && idea.tileY >= y1 && idea.tileY <= y2) {
+        this.entities.push({ type: 'idea', localX: idea.tileX - x1, localY: idea.tileY - y1 })
+      }
     }
   }
 
@@ -265,22 +281,22 @@ export class MoverTool {
     const mW = this.state.snapshot.mapWidth
     const mH = this.state.snapshot.mapHeight
 
+    const L = this.layer
     this.state.mutateQuiet(d => {
-      // Clear source tiles
+      // Clear source tiles (only affected layers)
       for (let row = 0; row < r.h; row++) {
         for (let col = 0; col < r.w; col++) {
           const ox = r.x + col
           const oy = r.y + row
           if (ox >= 0 && ox < mW && oy >= 0 && oy < mH) {
             const idx = oy * mW + ox
-            d.groundLayer[idx] = ''
-            d.wallsLayer[idx] = ''
-            d.wallsCollision[idx] = true
-            d.effectsLayer[idx] = 0
+            if (L === 'all' || L === 'ground') d.groundLayer[idx] = ''
+            if (L === 'all' || L === 'walls') { d.wallsLayer[idx] = ''; d.wallsCollision[idx] = true }
+            if (L === 'all' || L === 'effects') d.effectsLayer[idx] = 0
           }
         }
       }
-      // Write destination tiles
+      // Write destination tiles (only affected layers)
       for (let row = 0; row < r.h; row++) {
         for (let col = 0; col < r.w; col++) {
           const nx = r.x + col + dx
@@ -288,14 +304,14 @@ export class MoverTool {
           if (nx >= 0 && nx < mW && ny >= 0 && ny < mH) {
             const idx = ny * mW + nx
             const si = row * r.w + col
-            d.groundLayer[idx] = this.tiles[si]
-            d.wallsLayer[idx] = this.walls[si]
-            d.wallsCollision[idx] = this.collision[si]
-            d.effectsLayer[idx] = this.effects[si]
+            if (L === 'all' || L === 'ground') d.groundLayer[idx] = this.tiles[si]
+            if (L === 'all' || L === 'walls') { d.wallsLayer[idx] = this.walls[si]; d.wallsCollision[idx] = this.collision[si] }
+            if (L === 'all' || L === 'effects') d.effectsLayer[idx] = this.effects[si]
           }
         }
       }
-      // Move entities
+      // Move entities (only on 'all' or 'entities' layer)
+      if (L !== 'all' && L !== 'entities') return
       for (const ent of this.entities) {
         const newX = r.x + ent.localX + dx
         const newY = r.y + ent.localY + dy
@@ -339,6 +355,12 @@ export class MoverTool {
             heart.tileX = newX
             heart.tileY = newY
           }
+        } else if (ent.type === 'idea') {
+          const idea = d.ideas.find(i => i.tileX === r.x + ent.localX && i.tileY === r.y + ent.localY)
+          if (idea) {
+            idea.tileX = newX
+            idea.tileY = newY
+          }
         }
       }
     })
@@ -359,6 +381,7 @@ export class MoverTool {
     const nr = this.rect!
     const mW = snap.mapWidth
     const mH = snap.mapHeight
+    const L = this.layer
 
     this.tiles = []
     this.walls = []
@@ -372,41 +395,15 @@ export class MoverTool {
         const ny = nr.y + row
         const inBounds = nx >= 0 && nx < mW && ny >= 0 && ny < mH
         const idx = inBounds ? ny * mW + nx : -1
-        this.tiles.push(inBounds ? snap.groundLayer[idx] : '')
-        this.walls.push(inBounds ? snap.wallsLayer[idx] : '')
-        this.collision.push(inBounds ? snap.wallsCollision[idx] : true)
-        this.effects.push(inBounds ? snap.effectsLayer[idx] : 0)
+        this.tiles.push((L === 'all' || L === 'ground') && inBounds ? snap.groundLayer[idx] : '')
+        this.walls.push((L === 'all' || L === 'walls') && inBounds ? snap.wallsLayer[idx] : '')
+        this.collision.push((L === 'all' || L === 'walls') && inBounds ? snap.wallsCollision[idx] : true)
+        this.effects.push((L === 'all' || L === 'effects') && inBounds ? snap.effectsLayer[idx] : 0)
       }
     }
 
-    if (snap.playerSpawn && snap.playerSpawn.tileX >= nr.x && snap.playerSpawn.tileX < nr.x + nr.w
-        && snap.playerSpawn.tileY >= nr.y && snap.playerSpawn.tileY < nr.y + nr.h) {
-      this.entities.push({ type: 'player', localX: snap.playerSpawn.tileX - nr.x, localY: snap.playerSpawn.tileY - nr.y })
-    }
-    for (const npc of snap.npcs) {
-      if (npc.tileX >= nr.x && npc.tileX < nr.x + nr.w && npc.tileY >= nr.y && npc.tileY < nr.y + nr.h) {
-        this.entities.push({ type: 'npc', localX: npc.tileX - nr.x, localY: npc.tileY - nr.y })
-      }
-    }
-    for (const stair of snap.stairs) {
-      if (stair.tileX >= nr.x && stair.tileX < nr.x + nr.w && stair.tileY >= nr.y && stair.tileY < nr.y + nr.h) {
-        this.entities.push({ type: 'stair', localX: stair.tileX - nr.x, localY: stair.tileY - nr.y })
-      }
-    }
-    for (const tp of snap.teleports) {
-      if (tp.tileX >= nr.x && tp.tileX < nr.x + nr.w && tp.tileY >= nr.y && tp.tileY < nr.y + nr.h) {
-        this.entities.push({ type: 'teleport', localX: tp.tileX - nr.x, localY: tp.tileY - nr.y })
-      }
-    }
-    for (const block of snap.blocks) {
-      if (block.tileX >= nr.x && block.tileX < nr.x + nr.w && block.tileY >= nr.y && block.tileY < nr.y + nr.h) {
-        this.entities.push({ type: 'block', localX: block.tileX - nr.x, localY: block.tileY - nr.y })
-      }
-    }
-    for (const heart of snap.hearts) {
-      if (heart.tileX >= nr.x && heart.tileX < nr.x + nr.w && heart.tileY >= nr.y && heart.tileY < nr.y + nr.h) {
-        this.entities.push({ type: 'heart', localX: heart.tileX - nr.x, localY: heart.tileY - nr.y })
-      }
+    if (L === 'all' || L === 'entities') {
+      this.captureEntities(snap, nr.x, nr.y, nr.x + nr.w - 1, nr.y + nr.h - 1)
     }
   }
 }

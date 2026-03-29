@@ -1,4 +1,9 @@
 {
+  "welcome_npc": [
+    "Salut ! Bienvenue dans la Tour du Code !",
+    "Cet endroit est rempli de défis pour améliorer tes compétences en programmation.",
+    "Passe par ce point de téléportation quand tu es prêt !"
+  ],
   "hint_npc_01": [
     "Salut ! Je suis aussi un élève ici.",
     "Astuce : Les variables peuvent stocker différents types de données - des nombres, du texte, et plus encore !",

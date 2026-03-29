@@ -138,7 +138,6 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
     // Keyboard navigation
     this.bindKeys({
       isAnswered: () => this.answered,
-      onEscape: () => this.onComplete(this.answered),
       onKey: (e) => {
         if (e.code === 'ArrowUp') {
           e.preventDefault()
@@ -283,7 +282,8 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
         success.className = 'cl-success'
         success.textContent = this.t('challenge_feedback_all_matched')
         this.feedbackArea.appendChild(success)
-        this.hintBar.textContent = this.t('challenge_hint_esc_close')
+        this.hintBar.textContent = ''
+        this.showDoneButton()
       } else {
         // Clear selection — user picks fresh
         this.selectedTerm = -1

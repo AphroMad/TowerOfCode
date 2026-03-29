@@ -218,6 +218,13 @@ export class GridMovementSystem {
   }
 
   private processLandingEffect(): void {
+    // If frozen (e.g. NPC detection), stop sliding immediately
+    if (this.isFrozen) {
+      this.isSliding = false
+      this.isMoving = false
+      return
+    }
+
     const key = `${this.player.tileX},${this.player.tileY}`
     const effect = this.tileEffects.get(key)
 

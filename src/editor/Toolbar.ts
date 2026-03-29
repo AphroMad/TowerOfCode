@@ -1,4 +1,4 @@
-import type { EditorState, Tool } from './EditorState'
+import type { EditorState } from './EditorState'
 import type { UndoManager } from './UndoManager'
 import type { ImportExport } from './ImportExport'
 import type { TestMode } from './TestMode'
@@ -31,11 +31,23 @@ export class Toolbar {
   }
 
   private buildToolbar(el: HTMLElement): void {
-    // Left group: tools
-    const toolGroup = this.makeGroup(el)
-    this.makeToolBtn(toolGroup, 'Brush (B)', 'brush', 'Paint tiles on the grid')
-    this.makeToolBtn(toolGroup, 'Eraser (E)', 'eraser', 'Remove tiles (set to empty)')
-    this.makeToolBtn(toolGroup, 'Move (M)', 'mover', 'Select and move all layers at once')
+    // Help toggle
+    const helpGroup = this.makeGroup(el)
+    const helpBtn = document.createElement('button')
+    helpBtn.textContent = '? Help'
+    helpBtn.className = 'editor-btn editor-btn-sm'
+    helpBtn.title = 'Toggle help panel'
+    const helpPanel = document.getElementById('help-panel')
+    if (helpPanel) {
+      let helpVisible = false
+      helpPanel.style.display = 'none'
+      helpBtn.addEventListener('click', () => {
+        helpVisible = !helpVisible
+        helpPanel.style.display = helpVisible ? '' : 'none'
+        helpBtn.classList.toggle('active', helpVisible)
+      })
+    }
+    helpGroup.appendChild(helpBtn)
 
     this.makeSep(el)
 
@@ -79,7 +91,7 @@ export class Toolbar {
 
     // Map metadata
     const metaGroup = this.makeGroup(el)
-    this.makeTextInput(metaGroup, 'ID:', 'mapId', 90, 'Unique map identifier (e.g. map-03)')
+    this.makeTextInput(metaGroup, 'ID:', 'mapId', 90, 'Unique map identifier (e.g. map-02)')
     this.makeTextInput(metaGroup, 'Name:', 'mapName', 120, 'Display name shown in-game')
 
     this.makeSep(el)
@@ -195,26 +207,6 @@ export class Toolbar {
     parent.appendChild(sep)
   }
 
-  private makeToolBtn(parent: HTMLElement, label: string, tool: Tool, tooltip?: string): void {
-    const btn = document.createElement('button')
-    btn.textContent = label
-    btn.className = 'editor-btn editor-btn-sm'
-    if (tooltip) btn.title = tooltip
-    btn.addEventListener('click', () => {
-      this.state.mutate(d => {
-        d.activeTool = tool
-        d.placingEntity = null
-        if (d.activeLayer === 'entities') {
-          d.activeLayer = 'ground'
-        }
-      })
-    })
-    this.state.onChange(() => {
-      const d = this.state.snapshot
-      btn.classList.toggle('active', d.activeTool === tool && !d.placingEntity)
-    })
-    parent.appendChild(btn)
-  }
 
   private makeTextInput(parent: HTMLElement, label: string, key: 'mapId' | 'mapName', width: number, tooltip?: string): void {
     const lbl = document.createElement('span')

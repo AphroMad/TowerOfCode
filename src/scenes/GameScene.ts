@@ -32,7 +32,6 @@ export class GameScene extends Phaser.Scene {
   private heartHud?: HeartHud
   private heartPickupManager!: HeartPickupManager
   private warpManager!: WarpManager
-  private langHandler?: () => void
   private escKey?: Phaser.Input.Keyboard.Key
   private mapData!: MapData
   private pristineMap!: string  // JSON snapshot for clean restart
@@ -144,15 +143,20 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Non-collision wall tiles (passable overrides)
+    const passableWalls = new Set<string>()
     if (mapData.wallsCollision) {
-      const passableWalls = new Set<string>()
       for (let i = 0; i < mapData.wallsLayer.length; i++) {
         if (mapData.wallsLayer[i] !== '' && !mapData.wallsCollision[i]) {
           passableWalls.add(`${i % mapW},${Math.floor(i / mapW)}`)
         }
       }
-      if (passableWalls.size > 0) this.gridMovement.setPassableWalls(passableWalls)
     }
+    if (mapData.noCollision) {
+      for (const nc of mapData.noCollision) {
+        passableWalls.add(`${nc.tileX},${nc.tileY}`)
+      }
+    }
+    if (passableWalls.size > 0) this.gridMovement.setPassableWalls(passableWalls)
   }
 
   private setupEntities(mapData: MapData): void {
@@ -252,14 +256,12 @@ export class GameScene extends Phaser.Scene {
     this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
     this.escKey.on('down', () => this.scene.start('MenuScene'))
 
-    // Restart scene when language is toggled via HTML button
-    this.langHandler = () => this.scene.restart()
-    window.addEventListener('toggle-language', this.langHandler)
+    // Hide language toggle during gameplay
+    const langBtn = document.getElementById('lang-toggle')
+    if (langBtn) langBtn.style.display = 'none'
+
     this.events.on('shutdown', () => {
-      if (this.langHandler) {
-        window.removeEventListener('toggle-language', this.langHandler)
-        this.langHandler = undefined
-      }
+      if (langBtn) langBtn.style.display = ''
       if (this.escKey) {
         this.input.keyboard!.removeKey(this.escKey)
         this.escKey = undefined
@@ -324,13 +326,10 @@ export class GameScene extends Phaser.Scene {
       ? 'gatekeeper_blocked'
       : npc.data.dialogKey
 
-    // Always resolve challenge config; flag if already completed
+    // Always present challenges fresh — NPCs are independent
     let challengeConfig: ChallengeConfig | undefined
-    let challengeCompleted = false
-    const save = SaveManager.getInstance()
-    if (npc.data.challengeId) {
-      challengeConfig = getChallenge(npc.data.challengeId)
-      challengeCompleted = save.isChallengeCompleted(npc.data.challengeId)
+    if (npc.data.challengeIds?.length) {
+      challengeConfig = getChallenge(npc.data.challengeIds[0])
     }
 
     this.scene.pause()
@@ -338,7 +337,8 @@ export class GameScene extends Phaser.Scene {
       dialogKey,
       npcName: npc.data.name,
       challengeConfig,
-      challengeCompleted,
+      challengeIds: npc.data.challengeIds,
+      challengeCompleted: false,
     })
   }
 

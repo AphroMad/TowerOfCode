@@ -71,13 +71,13 @@ export class NpcBehaviorSystem {
 
       const { npc } = state
 
-      // Skip behavior if this NPC's challenge is already completed
-      if (npc.data.challengeId && save.isChallengeCompleted(npc.data.challengeId)) continue
+      // Gatekeepers: skip behavior if all challenges are completed (they vanish)
+      if (npc.data.behavior === 'gatekeeper' && npc.data.challengeIds?.length && npc.data.challengeIds.every(id => save.isChallengeCompleted(id))) continue
 
       // After detection+dialog, stop all behavior (no more lookout/patrol)
       if (state.hasDetected) continue
 
-      if (npc.data.behavior === 'lookout') {
+      if (npc.data.behavior === 'lookout' || npc.data.behavior === 'lookout-random') {
         this.updateLookout(state, delta)
       } else if (npc.data.behavior === 'patrol') {
         this.updatePatrol(state, delta)
@@ -224,7 +224,13 @@ export class NpcBehaviorSystem {
 
     if (state.lookoutTimer >= tempo) {
       state.lookoutTimer -= tempo
-      state.lookoutIndex = (state.lookoutIndex + 1) % pattern.length
+      if (state.npc.data.behavior === 'lookout-random') {
+        state.lookoutIndex = Math.floor(Math.random() * pattern.length)
+        // Also randomize the next tempo so timing is unpredictable
+        state.lookoutTimer -= Math.random() * tempo * 0.4
+      } else {
+        state.lookoutIndex = (state.lookoutIndex + 1) % pattern.length
+      }
       state.npc.faceDirection(pattern[state.lookoutIndex])
     }
   }

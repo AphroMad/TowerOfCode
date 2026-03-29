@@ -23,6 +23,7 @@ function clearState(d: Parameters<Parameters<EditorState['mutate']>[0]>[0], tota
   d.teleports = []
   d.blocks = []
   d.hearts = []
+  d.ideas = []
   d.selectedEntityType = null
   d.selectedEntityIndex = -1
   d.selectedWallTile = null

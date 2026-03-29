@@ -28,13 +28,6 @@ export class ClExplanationChallenge extends ChallengeBase<ClExplanationConfig> {
     btn.addEventListener('click', () => this.onComplete(true))
     hintBar.appendChild(btn)
 
-    const hint = document.createElement('span')
-    hint.style.marginLeft = '12px'
-    hint.style.color = '#999'
-    hint.style.fontSize = '12px'
-    hint.textContent = this.t('challenge_hint_or_esc')
-    hintBar.appendChild(hint)
-
-    this.bindEscapeOnly(() => this.onComplete(true))
+    this.bindKeys({ onKey: () => {} })
   }
 }

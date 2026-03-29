@@ -23,9 +23,13 @@ const COL_TELEPORT = '#ff6688'
 const COL_TELEPORT_SEL = '#ff88aa'
 const COL_SELECTION = '#ffffff'
 const COL_SIGHT_FILL = 'rgba(255, 80, 80, 0.15)'
+const COL_SIGHT_FILL_SEL = 'rgba(255, 80, 80, 0.3)'
 const COL_SIGHT_ARROW = 'rgba(255, 80, 80, 0.6)'
+const COL_SIGHT_ARROW_SEL = 'rgba(255, 100, 100, 1)'
 const COL_PATROL_LINE = 'rgba(100, 200, 255, 0.5)'
+const COL_PATROL_LINE_SEL = 'rgba(100, 200, 255, 0.9)'
 const COL_PATROL_DOT = 'rgba(100, 200, 255, 0.7)'
+const COL_PATROL_DOT_SEL = 'rgba(130, 220, 255, 1)'
 
 export class EntityRenderer {
   draw(ctx: CanvasRenderingContext2D, d: Readonly<EditorData>, s: number): void {
@@ -59,7 +63,7 @@ export class EntityRenderer {
       const x = npc.tileX * s
       const y = npc.tileY * s
       const selected = d.selectedEntityType === 'npc' && d.selectedEntityIndex === i
-      const color = npc.challengeId ? COL_NPC_CHALLENGE : COL_NPC_PLAIN
+      const color = npc.challengeIds?.length ? COL_NPC_CHALLENGE : COL_NPC_PLAIN
 
       ctx.globalAlpha = ENTITY_ALPHA
       ctx.fillStyle = color
@@ -74,7 +78,7 @@ export class EntityRenderer {
       ctx.font = `bold ${Math.round(s * FONT_MD)}px monospace`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(npc.challengeId ? 'C' : 'N', x + s / 2, y + s / 2)
+      ctx.fillText(npc.challengeIds?.length ? 'C' : 'N', x + s / 2, y + s / 2)
     }
 
     // Warp points
@@ -220,19 +224,64 @@ export class EntityRenderer {
       ctx.fillText('\u2665', cx, cy)
     }
 
-    // Sight line for selected NPC
-    if (d.selectedEntityType === 'npc' && d.selectedEntityIndex >= 0) {
-      const npc = d.npcs[d.selectedEntityIndex]
-      if (npc && npc.behavior !== 'static' && npc.behavior !== 'gatekeeper') {
-        this.drawSightLine(ctx, d, npc, s)
+    // Idea markers (editor-only)
+    const COL_IDEA = '#ffcc00'
+    const COL_IDEA_SEL = '#ffe066'
+    for (let i = 0; i < d.ideas.length; i++) {
+      const idea = d.ideas[i]
+      const x = idea.tileX * s
+      const y = idea.tileY * s
+      const selected = d.selectedEntityType === 'idea' && d.selectedEntityIndex === i
+
+      const cx = x + s / 2
+      const cy = y + s / 2
+      const r = (s - pad * 2) / 2
+
+      ctx.globalAlpha = ENTITY_ALPHA
+      ctx.fillStyle = selected ? COL_IDEA_SEL : COL_IDEA
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
+
+      ctx.strokeStyle = selected ? COL_SELECTION : COL_IDEA
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold ${Math.round(s * FONT_LG)}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', cx, cy)
+    }
+
+    // Sight lines, lookout patterns, and patrol paths for ALL NPCs
+    for (let i = 0; i < d.npcs.length; i++) {
+      const npc = d.npcs[i]
+      const isSelected = d.selectedEntityType === 'npc' && d.selectedEntityIndex === i
+
+      // Sight line — skip for patrol (patrol path is enough)
+      if (npc.behavior === 'detect') {
+        this.drawSightLine(ctx, d, npc, s, isSelected)
       }
-      if (npc && npc.behavior === 'patrol' && npc.patrolPath && npc.patrolPath.length > 0) {
-        this.drawPatrolPath(ctx, npc, s)
+
+      // Lookout: draw sight lines for ALL directions in the pattern
+      if ((npc.behavior === 'lookout' || npc.behavior === 'lookout-random') && npc.lookoutPattern?.length) {
+        for (const dir of npc.lookoutPattern) {
+          this.drawSightLine(ctx, d, { ...npc, facing: dir }, s, isSelected)
+        }
+      }
+
+      // Patrol path
+      if (npc.behavior === 'patrol' && npc.patrolPath && npc.patrolPath.length > 0) {
+        this.drawPatrolPath(ctx, npc, s, isSelected)
       }
     }
   }
 
-  private drawSightLine(ctx: CanvasRenderingContext2D, d: Readonly<EditorData>, npc: NPCData, s: number): void {
+  private drawSightLine(ctx: CanvasRenderingContext2D, d: Readonly<EditorData>, npc: NPCData, s: number, selected = false): void {
     const offsets: Record<string, { dx: number; dy: number }> = {
       up: { dx: 0, dy: -1 }, down: { dx: 0, dy: 1 },
       left: { dx: -1, dy: 0 }, right: { dx: 1, dy: 0 },
@@ -244,7 +293,7 @@ export class EntityRenderer {
     let ty = npc.tileY + off.dy
 
     const { mapWidth, mapHeight } = d
-    ctx.fillStyle = COL_SIGHT_FILL
+    ctx.fillStyle = selected ? COL_SIGHT_FILL_SEL : COL_SIGHT_FILL
     while (tx >= 0 && tx < mapWidth && ty >= 0 && ty < mapHeight) {
       const wallIdx = ty * mapWidth + tx
       if (d.wallsLayer[wallIdx] !== '' && d.wallsCollision[wallIdx]) break
@@ -255,20 +304,20 @@ export class EntityRenderer {
 
     const cx = npc.tileX * s + s / 2
     const cy = npc.tileY * s + s / 2
-    ctx.strokeStyle = COL_SIGHT_ARROW
-    ctx.lineWidth = 2
+    ctx.strokeStyle = selected ? COL_SIGHT_ARROW_SEL : COL_SIGHT_ARROW
+    ctx.lineWidth = selected ? 3 : 2
     ctx.beginPath()
     ctx.moveTo(cx, cy)
     ctx.lineTo(cx + off.dx * s * SIGHT_ARROW_LEN, cy + off.dy * s * SIGHT_ARROW_LEN)
     ctx.stroke()
   }
 
-  private drawPatrolPath(ctx: CanvasRenderingContext2D, npc: NPCData, s: number): void {
+  private drawPatrolPath(ctx: CanvasRenderingContext2D, npc: NPCData, s: number, selected = false): void {
     const path = npc.patrolPath!
     const half = s / 2
 
-    ctx.strokeStyle = COL_PATROL_LINE
-    ctx.lineWidth = 2
+    ctx.strokeStyle = selected ? COL_PATROL_LINE_SEL : COL_PATROL_LINE
+    ctx.lineWidth = selected ? 3 : 2
     ctx.setLineDash([4, 4])
     ctx.beginPath()
     ctx.moveTo(npc.tileX * s + half, npc.tileY * s + half)
@@ -281,7 +330,7 @@ export class EntityRenderer {
     for (let i = 0; i < path.length; i++) {
       const px = path[i].x * s + half
       const py = path[i].y * s + half
-      ctx.fillStyle = COL_PATROL_DOT
+      ctx.fillStyle = selected ? COL_PATROL_DOT_SEL : COL_PATROL_DOT
       ctx.beginPath()
       ctx.arc(px, py, Math.max(WAYPOINT_DOT_MIN, s * WAYPOINT_DOT_RATIO), 0, Math.PI * 2)
       ctx.fill()
@@ -291,5 +340,6 @@ export class EntityRenderer {
       ctx.textBaseline = 'middle'
       ctx.fillText(String(i + 1), px, py)
     }
+
   }
 }

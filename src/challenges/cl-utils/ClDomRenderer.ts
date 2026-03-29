@@ -94,12 +94,21 @@ export class ClDomRenderer {
     return cmEditable(container, code, this.cmInstances, extraExtensions)
   }
 
-  destroyOverlay(): void {
+  adoptPanel(panel: HTMLDivElement): void {
+    this.panel = panel
+    this.overlay = panel.parentElement as HTMLDivElement | null
+  }
+
+  clearPanel(): void {
     for (const cm of this.cmInstances) {
       cm.destroy()
     }
     this.cmInstances = []
+    if (this.panel) this.panel.innerHTML = ''
+  }
 
+  destroyOverlay(): void {
+    this.clearPanel()
     if (this.overlay && this.overlay.parentElement) {
       this.overlay.parentElement.removeChild(this.overlay)
     }

@@ -2,8 +2,8 @@ import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
 import type { Direction, HeartPickupData, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 export type Tool = 'brush' | 'eraser' | 'entity' | 'mover'
-export type LayerName = 'ground' | 'walls' | 'entities' | 'effects'
-export type EntityType = 'player' | 'npc' | 'stair' | 'teleport' | 'block' | 'heart'
+export type LayerName = 'all' | 'ground' | 'walls' | 'entities' | 'effects'
+export type EntityType = 'player' | 'npc' | 'stair' | 'teleport' | 'block' | 'heart' | 'idea'
 
 export interface PlayerSpawn {
   tileX: number
@@ -38,6 +38,7 @@ export interface EditorData {
   teleports: TeleportData[]
   blocks: PushableBlockData[]
   hearts: HeartPickupData[]
+  ideas: { tileX: number; tileY: number; note?: string }[]
   startingHp: number  // 0 = infinite
 
   selectedEntityType: EntityType | null
@@ -102,7 +103,7 @@ export class EditorState {
     const w = MAP_WIDTH_TILES
     const h = MAP_HEIGHT_TILES
     return {
-      mapId: 'map-03',
+      mapId: 'map-new',
       mapName: 'New Map',
       mapWidth: w,
       mapHeight: h,
@@ -124,6 +125,7 @@ export class EditorState {
       teleports: [],
       blocks: [],
       hearts: [],
+      ideas: [],
       startingHp: 0,
       selectedEntityType: null,
       selectedEntityIndex: -1,
@@ -210,6 +212,11 @@ export class EditorState {
         return { type: 'heart', index: i }
       }
     }
+    for (let i = 0; i < this._data.ideas.length; i++) {
+      if (this._data.ideas[i].tileX === x && this._data.ideas[i].tileY === y) {
+        return { type: 'idea', index: i }
+      }
+    }
     return null
   }
 
@@ -265,6 +272,7 @@ export class EditorState {
     if (d.teleports.some(t => t.tileX >= newW || t.tileY >= newH)) return true
     if (d.blocks.some(b => b.tileX >= newW || b.tileY >= newH)) return true
     if (d.hearts.some(h => h.tileX >= newW || h.tileY >= newH)) return true
+    if (d.ideas.some(i => i.tileX >= newW || i.tileY >= newH)) return true
 
     return false
   }
@@ -305,6 +313,7 @@ export class EditorState {
     d.teleports = d.teleports.filter(t => t.tileX < newW && t.tileY < newH)
     d.blocks = d.blocks.filter(b => b.tileX < newW && b.tileY < newH)
     d.hearts = d.hearts.filter(h => h.tileX < newW && h.tileY < newH)
+    d.ideas = d.ideas.filter(i => i.tileX < newW && i.tileY < newH)
 
     // Clamp patrol paths
     for (const npc of d.npcs) {

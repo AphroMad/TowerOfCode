@@ -97,6 +97,10 @@ export class WarpManager {
       this.isTransitioning = true
       this.gridMovement.freeze()
       this.showToast(i18n.t('stairs_coming_soon'))
+      this.scene.time.delayedCall(1500, () => {
+        this.gridMovement.unfreeze()
+        this.isTransitioning = false
+      })
       return
     }
 

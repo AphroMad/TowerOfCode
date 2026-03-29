@@ -16,7 +16,7 @@ const locales: Record<Language, LocaleData> = {
 
 export class I18nManager {
   private static instance: I18nManager
-  private language: Language = 'en'
+  private language: Language = 'fr'
 
   static getInstance(): I18nManager {
     if (!I18nManager.instance) {

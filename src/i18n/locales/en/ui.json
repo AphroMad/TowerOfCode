@@ -35,6 +35,7 @@
   "challenge_feedback_incorrect": "Incorrect",
   "challenge_feedback_not_quite": "Not quite — try again!",
   "challenge_feedback_all_matched": "All matched correctly!",
+  "challenge_feedback_already_tried": "Already tried — change your answer!",
   "challenge_validation_fill_all": "Fill all slots first!",
 
   "challenge_btn_retry": "Retry",

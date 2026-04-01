@@ -13,6 +13,7 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
   private lockedTerms = new Set<number>() // indices of correctly matched terms
   private lockedMatches = new Set<number>() // indices of correctly matched matches
   private shuffledMatchIndices: number[] = []
+  private triedPairs = new Set<string>() // "termIdx-matchDisplayIdx" keys
 
   private termEls: HTMLButtonElement[] = []
   private matchEls: HTMLButtonElement[] = []
@@ -31,6 +32,7 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
     this.connections.clear()
     this.lockedTerms.clear()
     this.lockedMatches.clear()
+    this.triedPairs.clear()
     this.column = 'none'
     this.selectedTerm = -1
     this.selectedMatch = -1
@@ -180,6 +182,10 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
   private connect(): void {
     if (this.lockedTerms.has(this.selectedTerm)) return
 
+    // Block already-tried wrong pairs
+    const pairKey = `${this.selectedTerm}-${this.selectedMatch}`
+    if (this.triedPairs.has(pairKey)) return
+
     // Remove any existing unlocked connection to this match
     for (const [k, v] of this.connections) {
       if (v === this.selectedMatch && !this.lockedTerms.has(k)) {
@@ -292,6 +298,8 @@ export class ClMatchingPairsChallenge extends ChallengeBase<ClMatchingPairsConfi
         this.updateHighlights()
       }
     } else {
+      // Track this wrong pair so it can't be retried
+      this.triedPairs.add(`${termIdx}-${matchDisplayIdx}`)
       // Flash red then remove just this connection, clear selection
       this.notifyWrongAnswer()
       this.termEls[termIdx].classList.add('incorrect')

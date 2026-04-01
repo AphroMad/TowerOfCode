@@ -11,6 +11,7 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
   private feedbackArea!: HTMLDivElement
   private hintBar!: HTMLDivElement
   private optionsDiv!: HTMLDivElement
+  private triedIndices = new Set<number>()
 
   protected onCreate(
     _scene: Phaser.Scene,
@@ -65,6 +66,7 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
       btn.style.textAlign = 'left'
       btn.addEventListener('click', () => {
         if (this.answered) return
+        if (this.triedIndices.has(i)) return
         // If showing wrong-answer feedback, clear it and let user pick again
         if (this.wrongShown) this.clearWrongState()
         this.selectedIndex = i
@@ -84,12 +86,12 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
         if (e.code === 'ArrowUp') {
           e.preventDefault()
           if (this.wrongShown) this.clearWrongState()
-          this.selectedIndex = Math.max(0, this.selectedIndex - 1)
+          this.selectedIndex = this.findNextAvailable(this.selectedIndex, -1)
           this.highlightSelected()
         } else if (e.code === 'ArrowDown') {
           e.preventDefault()
           if (this.wrongShown) this.clearWrongState()
-          this.selectedIndex = Math.min(this.optionBtns.length - 1, this.selectedIndex + 1)
+          this.selectedIndex = this.findNextAvailable(this.selectedIndex, 1)
           this.highlightSelected()
         } else if (e.code === 'Enter') {
           e.preventDefault()
@@ -102,25 +104,47 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
 
   private highlightSelected(): void {
     for (let i = 0; i < this.optionBtns.length; i++) {
+      if (this.triedIndices.has(i)) continue
       this.optionBtns[i].classList.toggle('selected', i === this.selectedIndex)
     }
+  }
+
+  /** Find the next available (not tried) option in the given direction */
+  private findNextAvailable(from: number, dir: -1 | 1): number {
+    let idx = from + dir
+    while (idx >= 0 && idx < this.optionBtns.length) {
+      if (!this.triedIndices.has(idx)) return idx
+      idx += dir
+    }
+    return from // stay put if nothing available
   }
 
   private clearWrongState(): void {
     this.wrongShown = false
     this.feedbackArea.innerHTML = ''
-    for (const btn of this.optionBtns) {
-      btn.classList.remove('incorrect', 'dimmed', 'selected')
+    for (let i = 0; i < this.optionBtns.length; i++) {
+      this.optionBtns[i].classList.remove('incorrect', 'dimmed', 'selected')
+      // Keep tried options visually disabled
+      if (this.triedIndices.has(i)) {
+        this.optionBtns[i].classList.add('incorrect', 'dimmed')
+        this.optionBtns[i].style.pointerEvents = 'none'
+      }
     }
     this.hintBar.textContent = this.t('challenge_hint_mcq')
   }
 
   private submitAnswer(): void {
     if (this.answered) return
+    // Block re-submitting an already tried answer
+    if (this.triedIndices.has(this.selectedIndex)) return
     this.addAttempt()
 
     const correctIdx = this.config.content.exercise.correctAnswer
     const correct = this.selectedIndex === correctIdx
+
+    if (!correct) {
+      this.triedIndices.add(this.selectedIndex)
+    }
 
     // Show which was picked (and correct if right)
     for (let i = 0; i < this.optionBtns.length; i++) {

@@ -10,6 +10,7 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
   private selectedOption = 0
   private answered = false
   private availableOptions: string[] = []
+  private triedCombinations = new Set<string>()
 
   private slotEls: HTMLSpanElement[] = []
   private chipEls: HTMLButtonElement[] = []
@@ -238,6 +239,18 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
       return
     }
 
+    // Block re-submitting the exact same combination
+    const comboKey = this.slots.join('\x00')
+    if (this.triedCombinations.has(comboKey)) {
+      this.feedbackArea.innerHTML = ''
+      const warn = document.createElement('div')
+      warn.className = 'cl-failure'
+      warn.textContent = this.t('challenge_feedback_already_tried')
+      this.feedbackArea.appendChild(warn)
+      this.addTimer(() => { warn.remove() }, 1500)
+      return
+    }
+
     this.addAttempt()
     const correctAnswers = this.config.content.exercise.correctAnswers
     let allCorrect = true
@@ -266,6 +279,8 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
       this.hintBar.textContent = ''
       this.showDoneButton()
     } else {
+      this.triedCombinations.add(comboKey)
+
       const fail = document.createElement('div')
       fail.className = 'cl-failure'
       fail.textContent = this.t('challenge_feedback_not_quite')

@@ -32,7 +32,7 @@ export class ChallengeScene extends Phaser.Scene {
     const i18n = I18nManager.getInstance()
 
     // Clean up DOM hearts on scene shutdown (e.g. game.destroy() from editor test mode)
-    this.events.on('shutdown', () => {
+    this.events.once('shutdown', () => {
       if (this.stepNav) {
         this.stepNav.remove()
         this.stepNav = null

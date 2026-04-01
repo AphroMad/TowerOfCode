@@ -19,6 +19,7 @@ export class DialogScene extends Phaser.Scene {
   private advanceTween?: Phaser.Tweens.Tween
   private sceneData!: DialogSceneData
   private inReplayPrompt = false
+  private transitioning = false
   private selectedOption = 0 // 0 = yes, 1 = no
   private optionsText?: Phaser.GameObjects.Text
   private yesLabel = ''
@@ -31,6 +32,7 @@ export class DialogScene extends Phaser.Scene {
   create(data: DialogSceneData): void {
     this.sceneData = data
     this.inReplayPrompt = false
+    this.transitioning = false
     this.selectedOption = 1
     const cam = this.cameras.main
     const boxY = cam.height - 58
@@ -93,6 +95,7 @@ export class DialogScene extends Phaser.Scene {
 
     // Input
     this.input.keyboard!.on('keydown-SPACE', () => {
+      if (this.transitioning) return
       if (this.inReplayPrompt) {
         this.confirmReplayChoice()
       } else {
@@ -101,6 +104,7 @@ export class DialogScene extends Phaser.Scene {
     })
 
     this.input.keyboard!.on('keydown-ENTER', () => {
+      if (this.transitioning) return
       if (this.inReplayPrompt) this.confirmReplayChoice()
     })
 
@@ -118,8 +122,8 @@ export class DialogScene extends Phaser.Scene {
       }
     })
 
-    // Cleanup on shutdown
-    this.events.on('shutdown', () => {
+    // Cleanup on shutdown (use 'once' to prevent listener accumulation across scene restarts)
+    this.events.once('shutdown', () => {
       this.input.keyboard!.off('keydown-SPACE')
       this.input.keyboard!.off('keydown-ENTER')
       this.input.keyboard!.off('keydown-UP')
@@ -133,20 +137,124 @@ export class DialogScene extends Phaser.Scene {
   }
 
   private onDialogComplete(): void {
+    if (this.transitioning) return
     if (this.sceneData.challengeConfig) {
       if (this.sceneData.challengeCompleted) {
         this.showReplayPrompt()
       } else {
-        this.scene.stop()
-        this.scene.launch('ChallengeScene', {
-          challengeConfig: this.sceneData.challengeConfig,
-          challengeIds: this.sceneData.challengeIds,
+        this.transitioning = true
+        this.playCombatTransition(() => {
+          this.scene.stop()
+          this.scene.launch('ChallengeScene', {
+            challengeConfig: this.sceneData.challengeConfig,
+            challengeIds: this.sceneData.challengeIds,
+          })
         })
       }
     } else {
       this.scene.stop()
       this.scene.resume('GameScene')
     }
+  }
+
+  /** Classic RPG spiral-in battle transition */
+  private playCombatTransition(onDone: () => void): void {
+    const cam = this.cameras.main
+    const w = cam.width
+    const h = cam.height
+    const cx = cam.centerX
+    const cy = cam.centerY
+    const maxRadius = Math.sqrt(cx * cx + cy * cy) + 20
+
+    // Phase 1: Two quick white flashes
+    const flash = this.add.rectangle(cx, cy, w, h, 0xffffff, 0).setDepth(100)
+
+    this.tweens.add({
+      targets: flash,
+      alpha: { from: 0, to: 0.7 },
+      duration: 80,
+      yoyo: true,
+      onComplete: () => {
+        this.tweens.add({
+          targets: flash,
+          alpha: { from: 0, to: 0.5 },
+          duration: 60,
+          yoyo: true,
+          onComplete: () => {
+            flash.destroy()
+            this.playSpiralWipe(cx, cy, maxRadius, w, h, onDone)
+          },
+        })
+      },
+    })
+  }
+
+  /** Iris-wipe closing circle with spinning accent — classic RPG battle entry */
+  private playSpiralWipe(cx: number, cy: number, maxRadius: number, w: number, h: number, onDone: () => void): void {
+    // Black rectangle that covers the screen — masked by a shrinking circle
+    const blackBg = this.add.rectangle(cx, cy, w, h, 0x111122).setDepth(99)
+
+    // Circle shape used as geometry mask (visible area = inside the circle)
+    const maskShape = this.make.graphics({ x: 0, y: 0 })
+    maskShape.fillStyle(0xffffff)
+    maskShape.fillCircle(cx, cy, maxRadius)
+
+    const mask = maskShape.createGeometryMask()
+    mask.invertAlpha = true // Invert: black shows OUTSIDE the circle
+    blackBg.setMask(mask)
+
+    // Accent ring that spins as it closes
+    const ringGfx = this.add.graphics().setDepth(100)
+
+    const duration = 650
+    const startTime = this.time.now
+
+    const updateEvent = this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        const elapsed = this.time.now - startTime
+        const t = Math.min(elapsed / duration, 1)
+        // Ease-in curve — starts fast, decelerates at the end
+        const eased = 1 - Math.pow(1 - t, 3)
+
+        const r = maxRadius * (1 - eased)
+
+        // Redraw the mask circle at new radius
+        maskShape.clear()
+        maskShape.fillStyle(0xffffff)
+        maskShape.fillCircle(cx, cy, Math.max(r, 0))
+
+        // Spinning accent ring
+        ringGfx.clear()
+        if (r > 4) {
+          const spin = eased * Math.PI * 6
+          // Thin outer ring
+          ringGfx.lineStyle(2, 0xffdd44, 0.5 * (1 - eased))
+          ringGfx.strokeCircle(cx, cy, r)
+          // Bright spinning arc
+          ringGfx.lineStyle(3, 0xffdd44, 0.8 * (1 - eased * 0.5))
+          ringGfx.beginPath()
+          ringGfx.arc(cx, cy, r, spin, spin + 1.2)
+          ringGfx.strokePath()
+          // Secondary accent arc (opposite side)
+          ringGfx.lineStyle(2, 0x4488cc, 0.6 * (1 - eased))
+          ringGfx.beginPath()
+          ringGfx.arc(cx, cy, r, spin + Math.PI, spin + Math.PI + 0.8)
+          ringGfx.strokePath()
+        }
+
+        if (t >= 1) {
+          updateEvent.destroy()
+          ringGfx.destroy()
+          // Remove mask, just show full black
+          blackBg.clearMask(true)
+          maskShape.destroy()
+          blackBg.setFillStyle(0x111122)
+          this.time.delayedCall(120, onDone)
+        }
+      },
+    })
   }
 
   private showReplayPrompt(): void {
@@ -198,11 +306,15 @@ export class DialogScene extends Phaser.Scene {
   }
 
   private confirmReplayChoice(): void {
+    if (this.transitioning) return
     if (this.selectedOption === 0) {
-      this.scene.stop()
-      this.scene.launch('ChallengeScene', {
-        challengeConfig: this.sceneData.challengeConfig,
-        challengeIds: this.sceneData.challengeIds,
+      this.transitioning = true
+      this.playCombatTransition(() => {
+        this.scene.stop()
+        this.scene.launch('ChallengeScene', {
+          challengeConfig: this.sceneData.challengeConfig,
+          challengeIds: this.sceneData.challengeIds,
+        })
       })
     } else {
       this.scene.stop()

@@ -2,9 +2,7 @@ import Phaser from 'phaser'
 import type { Direction } from '@/data/types'
 import { TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
 import { tileToPixel, DIR_OFFSETS } from '@/utils/helpers'
-
-// Same 4x4 spritesheet layout as Player/NPC
-const DIR_ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 }
+import { createDirectionalAnimations, DIR_ROW } from '@/utils/AnimationFactory'
 
 /**
  * A codemon companion that follows the player 1 tile behind.
@@ -13,12 +11,10 @@ const DIR_ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 }
 export class Companion {
   readonly sprite: Phaser.GameObjects.Sprite
   private facing: Direction = 'down'
-  private readonly spriteKey: string
   private readonly animPrefix: string
   private isMoving = false
 
   constructor(scene: Phaser.Scene, spriteKey: string, tileX: number, tileY: number, facing: Direction) {
-    this.spriteKey = spriteKey
     this.animPrefix = `companion-${spriteKey}`
     this.facing = facing
 
@@ -29,40 +25,8 @@ export class Companion {
       DIR_ROW[facing] * 4,
     )
     this.sprite.setOrigin(0.5, 0.75)
-    this.createAnimations(scene)
+    createDirectionalAnimations(scene, spriteKey, this.animPrefix)
     this.playIdle()
-  }
-
-  private createAnimations(scene: Phaser.Scene): void {
-    const dirs: Direction[] = ['down', 'left', 'right', 'up']
-    for (const dir of dirs) {
-      const row = DIR_ROW[dir]
-      const base = row * 4
-
-      const walkKey = `${this.animPrefix}-${dir}`
-      if (!scene.anims.exists(walkKey)) {
-        scene.anims.create({
-          key: walkKey,
-          frames: [
-            { key: this.spriteKey, frame: base + 1 },
-            { key: this.spriteKey, frame: base },
-            { key: this.spriteKey, frame: base + 3 },
-            { key: this.spriteKey, frame: base },
-          ],
-          frameRate: 8,
-          repeat: -1,
-        })
-      }
-
-      const idleKey = `${this.animPrefix}-idle-${dir}`
-      if (!scene.anims.exists(idleKey)) {
-        scene.anims.create({
-          key: idleKey,
-          frames: [{ key: this.spriteKey, frame: base }],
-          frameRate: 1,
-        })
-      }
-    }
   }
 
   /** Move companion to a tile with walk animation */

@@ -3,10 +3,11 @@ import { getAllTiles } from '@/data/tiles/TileRegistry'
 import { getAllSprites } from '@/data/sprites/SpriteRegistry'
 import { normalizeTileTextures } from '@/utils/normalizeTileTextures'
 import { normalizeSpriteTextures } from '@/utils/normalizeSpriteTextures'
+import { SCENE } from '@/utils/constants'
 
 export class BootScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'BootScene' })
+    super({ key: SCENE.BOOT })
   }
 
   preload(): void {
@@ -29,7 +30,7 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     normalizeTileTextures(this)
     normalizeSpriteTextures(this)
-    this.scene.start('MenuScene')
+    this.scene.start(SCENE.MENU)
   }
 
   private createLoadingBar(): void {

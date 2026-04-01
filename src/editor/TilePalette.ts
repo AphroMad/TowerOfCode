@@ -1,6 +1,7 @@
 import type { EditorState, LayerName } from './EditorState'
 import { getTilesByCategory, getFolders, type TileDef } from '@/data/tiles/TileRegistry'
 import { loadAllTileImages, getTileImage } from './tileImageCache'
+import { EffectId } from '@/data/types'
 
 const DISPLAY_SIZE = 48
 
@@ -13,17 +14,17 @@ interface EffectEntry {
 }
 
 const EFFECTS: EffectEntry[] = [
-  { id: 0, label: 'Empty', color: '#222', folder: 'Tools' },
-  { id: 1, label: 'Ice', color: '#4488cc', folder: 'Sliding' },
-  { id: 2, label: 'Redirect \u2193', color: '#cc8844', arrow: '\u2193', folder: 'Redirect' },
-  { id: 3, label: 'Redirect \u2191', color: '#cc8844', arrow: '\u2191', folder: 'Redirect' },
-  { id: 4, label: 'Redirect \u2190', color: '#cc8844', arrow: '\u2190', folder: 'Redirect' },
-  { id: 5, label: 'Redirect \u2192', color: '#cc8844', arrow: '\u2192', folder: 'Redirect' },
-  { id: 6, label: 'Hole', color: '#442211', folder: 'Blocking' },
-  { id: 7, label: 'Ledge \u2193', color: '#ddaa28', arrow: '\u2193', folder: 'Ledge' },
-  { id: 8, label: 'Ledge \u2191', color: '#ddaa28', arrow: '\u2191', folder: 'Ledge' },
-  { id: 9, label: 'Ledge \u2190', color: '#ddaa28', arrow: '\u2190', folder: 'Ledge' },
-  { id: 10, label: 'Ledge \u2192', color: '#ddaa28', arrow: '\u2192', folder: 'Ledge' },
+  { id: EffectId.None, label: 'Empty', color: '#222', folder: 'Tools' },
+  { id: EffectId.Ice, label: 'Ice', color: '#4488cc', folder: 'Sliding' },
+  { id: EffectId.RedirectDown, label: 'Redirect \u2193', color: '#cc8844', arrow: '\u2193', folder: 'Redirect' },
+  { id: EffectId.RedirectUp, label: 'Redirect \u2191', color: '#cc8844', arrow: '\u2191', folder: 'Redirect' },
+  { id: EffectId.RedirectLeft, label: 'Redirect \u2190', color: '#cc8844', arrow: '\u2190', folder: 'Redirect' },
+  { id: EffectId.RedirectRight, label: 'Redirect \u2192', color: '#cc8844', arrow: '\u2192', folder: 'Redirect' },
+  { id: EffectId.Hole, label: 'Hole', color: '#442211', folder: 'Blocking' },
+  { id: EffectId.LedgeDown, label: 'Ledge \u2193', color: '#ddaa28', arrow: '\u2193', folder: 'Ledge' },
+  { id: EffectId.LedgeUp, label: 'Ledge \u2191', color: '#ddaa28', arrow: '\u2191', folder: 'Ledge' },
+  { id: EffectId.LedgeLeft, label: 'Ledge \u2190', color: '#ddaa28', arrow: '\u2190', folder: 'Ledge' },
+  { id: EffectId.LedgeRight, label: 'Ledge \u2192', color: '#ddaa28', arrow: '\u2192', folder: 'Ledge' },
 ]
 
 interface CellData {

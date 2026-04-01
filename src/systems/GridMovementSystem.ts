@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 import { Player } from '@/entities/Player'
 import { TILE_SIZE, PLAYER_MOVE_SPEED } from '@/config/game.config'
 import { tileToPixel, DIR_OFFSETS } from '@/utils/helpers'
+import { ensureDustTexture } from '@/utils/AnimationFactory'
+import { TileChecker } from '@/systems/TileChecker'
 import type { Direction, TileEffectData } from '@/data/types'
 
 export class GridMovementSystem {
@@ -10,10 +12,7 @@ export class GridMovementSystem {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys
   private isMoving = false
   private isFrozen = false
-  private wallLayer: Phaser.Tilemaps.TilemapLayer
-  private blockedTiles: Set<string>
-  private passableWalls: Set<string> = new Set()
-  private tileEffects: Map<string, TileEffectData> = new Map()
+  readonly tiles: TileChecker
   private lastDirection: Direction = 'down'
   private isSliding = false
   private pushBlockCallback: ((blockTileX: number, blockTileY: number, dir: Direction) => boolean) | null = null
@@ -27,18 +26,10 @@ export class GridMovementSystem {
   ) {
     this.scene = scene
     this.player = player
-    this.wallLayer = wallLayer
+    this.tiles = new TileChecker(wallLayer)
     this.cursors = scene.input.keyboard!.createCursorKeys()
-    this.blockedTiles = new Set()
 
-    // Generate a tiny circle texture for dust particles (once per scene)
-    if (!scene.textures.exists('dust')) {
-      const gfx = scene.make.graphics({ x: 0, y: 0 }, false)
-      gfx.fillStyle(0xffffff, 1)
-      gfx.fillCircle(3, 3, 3)
-      gfx.generateTexture('dust', 6, 6)
-      gfx.destroy()
-    }
+    ensureDustTexture(scene)
 
     this.dustEmitter = scene.add.particles(0, 0, 'dust', {
       speed: { min: 8, max: 20 },
@@ -52,24 +43,16 @@ export class GridMovementSystem {
     this.dustEmitter.setDepth(9999)
   }
 
-  blockTile(tileX: number, tileY: number): void {
-    this.blockedTiles.add(`${tileX},${tileY}`)
-  }
-
-  unblockTile(tileX: number, tileY: number): void {
-    this.blockedTiles.delete(`${tileX},${tileY}`)
-  }
-
-  setPassableWalls(tiles: Set<string>): void {
-    this.passableWalls = tiles
-  }
-
-  setTileEffects(effects: TileEffectData[]): void {
-    this.tileEffects.clear()
-    for (const e of effects) {
-      this.tileEffects.set(`${e.tileX},${e.tileY}`, e)
-    }
-  }
+  // Delegate tile operations to TileChecker
+  blockTile(tileX: number, tileY: number): void { this.tiles.blockTile(tileX, tileY) }
+  unblockTile(tileX: number, tileY: number): void { this.tiles.unblockTile(tileX, tileY) }
+  setPassableWalls(tiles: Set<string>): void { this.tiles.setPassableWalls(tiles) }
+  setTileEffects(effects: TileEffectData[]): void { this.tiles.setTileEffects(effects) }
+  removeTileEffect(tileX: number, tileY: number): void { this.tiles.removeTileEffect(tileX, tileY) }
+  isWallAt(tileX: number, tileY: number): boolean { return this.tiles.isWallAt(tileX, tileY) }
+  isBlocked(tileX: number, tileY: number): boolean { return this.tiles.isTileBlocked(tileX, tileY) }
+  get mapWidth(): number { return this.tiles.mapWidth }
+  get mapHeight(): number { return this.tiles.mapHeight }
 
   setPushBlockCallback(cb: (blockTileX: number, blockTileY: number, dir: Direction) => boolean): void {
     this.pushBlockCallback = cb
@@ -77,10 +60,6 @@ export class GridMovementSystem {
 
   onMoveComplete(cb: (fromX: number, fromY: number, toX: number, toY: number, dir: Direction) => void): void {
     this.moveCompleteCallback = cb
-  }
-
-  removeTileEffect(tileX: number, tileY: number): void {
-    this.tileEffects.delete(`${tileX},${tileY}`)
   }
 
   get moving(): boolean {
@@ -115,29 +94,6 @@ export class GridMovementSystem {
     return this.isFrozen
   }
 
-  get mapWidth(): number {
-    return this.wallLayer.layer.width
-  }
-
-  get mapHeight(): number {
-    return this.wallLayer.layer.height
-  }
-
-  /** Check if a tile has a wall (non-empty tile on wall layer, respects passable overrides) */
-  isWallAt(tileX: number, tileY: number): boolean {
-    const mapWidth = this.wallLayer.layer.width
-    const mapHeight = this.wallLayer.layer.height
-    if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return true
-    if (this.passableWalls.has(`${tileX},${tileY}`)) return false
-    const tile = this.wallLayer.getTileAt(tileX, tileY)
-    return tile !== null
-  }
-
-  /** Check if a tile is blocked (wall, NPC, or out of bounds) */
-  isBlocked(tileX: number, tileY: number): boolean {
-    return this.isTileBlocked(tileX, tileY)
-  }
-
   update(): void {
     if (this.isMoving || this.isFrozen) return
 
@@ -163,23 +119,19 @@ export class GridMovementSystem {
     const targetTileY = this.player.tileY + off.y
 
     const targetKey = `${targetTileX},${targetTileY}`
-    const isBlockedTile = this.blockedTiles.has(targetKey)
-    const targetEffect = this.tileEffects.get(targetKey)
+    const isBlockedTile = this.tiles.isBlockedTile(targetKey)
+    const targetEffect = this.tiles.getEffect(targetTileX, targetTileY)
     const isHole = targetEffect?.effect === 'hole'
 
     if (isBlockedTile && this.pushBlockCallback) {
-      // Target has something in blockedTiles — try pushing (may be a block or NPC)
       const pushed = this.pushBlockCallback(targetTileX, targetTileY, dir)
       if (!pushed) {
-        // Not a block, or push destination blocked
         this.isSliding = false
         this.isMoving = false
         this.player.playIdle()
         return
       }
-      // Block was pushed — fall through to move player into the now-clear tile
-    } else if (isHole || this.isTileBlocked(targetTileX, targetTileY, dir)) {
-      // Hole (no block on it) or wall/OOB
+    } else if (isHole || this.tiles.isTileBlocked(targetTileX, targetTileY, dir)) {
       this.isSliding = false
       this.isMoving = false
       this.player.playIdle()
@@ -194,7 +146,6 @@ export class GridMovementSystem {
     this.player.facing = dir
     if (!this.isSliding) {
       this.player.playWalk(dir)
-      // Emit dust puffs at the player's feet
       this.dustEmitter.emitParticleAt(this.player.sprite.x, this.player.sprite.y)
     } else {
       this.player.playIdle()
@@ -218,15 +169,13 @@ export class GridMovementSystem {
   }
 
   private processLandingEffect(): void {
-    // If frozen (e.g. NPC detection), stop sliding immediately
     if (this.isFrozen) {
       this.isSliding = false
       this.isMoving = false
       return
     }
 
-    const key = `${this.player.tileX},${this.player.tileY}`
-    const effect = this.tileEffects.get(key)
+    const effect = this.tiles.getEffect(this.player.tileX, this.player.tileY)
 
     if (effect?.effect === 'ice') {
       this.isSliding = true
@@ -240,29 +189,8 @@ export class GridMovementSystem {
       return
     }
 
-    // No effect — stop
     this.isSliding = false
     this.isMoving = false
-  }
-
-  private isTileBlocked(tileX: number, tileY: number, moveDir?: Direction): boolean {
-    // Ledge effect: one-way tile, blocks unless moving in the allowed direction
-    const effect = this.tileEffects.get(`${tileX},${tileY}`)
-    if (effect?.effect === 'ledge') {
-      return moveDir !== effect.direction
-    }
-
-    if (this.blockedTiles.has(`${tileX},${tileY}`)) return true
-    // Block movement outside map bounds
-    const mapWidth = this.wallLayer.layer.width
-    const mapHeight = this.wallLayer.layer.height
-    if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return true
-    // Passable wall overrides
-    if (this.passableWalls.has(`${tileX},${tileY}`)) return false
-    // Block on non-empty wall tiles
-    const tile = this.wallLayer.getTileAt(tileX, tileY)
-    if (tile !== null) return true
-    return false
   }
 
   getPlayerTile(): { x: number; y: number } {

@@ -1,5 +1,6 @@
 import type { EditorState } from './EditorState'
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
+import { EffectId } from '@/data/types'
 import type { Direction, HeartPickupData, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 const AUTOSAVE_KEY = 'editor_autosave'
@@ -81,13 +82,23 @@ export class ImportExport {
           : new Array(size).fill(0),
         playerSpawn: data.playerSpawn || null,
         npcs: (data.npcs || []).map((n: Record<string, unknown>) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const npc: any = { ...n, name: n.name || n.npcId || 'NPC' }
-          // Migration: old single challengeId → challengeIds array
-          if (npc.challengeId && !npc.challengeIds) {
-            npc.challengeIds = [npc.challengeId]
-            delete npc.challengeId
+          const npc: NPCData = {
+            name: (n.name || n.npcId || 'NPC') as string,
+            tileX: n.tileX as number,
+            tileY: n.tileY as number,
+            facing: (n.facing || 'down') as NPCData['facing'],
+            spriteKey: (n.spriteKey || 'npc') as string,
+            behavior: (n.behavior || 'static') as NPCData['behavior'],
           }
+          if (n.dialogKey) npc.dialogKey = n.dialogKey as string
+          if (n.lookoutPattern) npc.lookoutPattern = n.lookoutPattern as NPCData['lookoutPattern']
+          if (n.lookoutTempo !== undefined) npc.lookoutTempo = n.lookoutTempo as number
+          if (n.patrolPath) npc.patrolPath = n.patrolPath as NPCData['patrolPath']
+          // Migration: old single challengeId → challengeIds array
+          const ids = n.challengeIds as string[] | undefined
+          const legacyId = n.challengeId as string | undefined
+          if (ids?.length) npc.challengeIds = ids
+          else if (legacyId) npc.challengeIds = [legacyId]
           return npc
         }),
         stairs: data.stairs || [],
@@ -195,16 +206,16 @@ export class ImportExport {
     }).join(',\n')
 
     const effectIdToType: Record<number, { effect: string; direction?: string }> = {
-      1: { effect: 'ice' },
-      2: { effect: 'redirect', direction: 'down' },
-      3: { effect: 'redirect', direction: 'up' },
-      4: { effect: 'redirect', direction: 'left' },
-      5: { effect: 'redirect', direction: 'right' },
-      6: { effect: 'hole' },
-      7: { effect: 'ledge', direction: 'down' },
-      8: { effect: 'ledge', direction: 'up' },
-      9: { effect: 'ledge', direction: 'left' },
-      10: { effect: 'ledge', direction: 'right' },
+      [EffectId.Ice]: { effect: 'ice' },
+      [EffectId.RedirectDown]: { effect: 'redirect', direction: 'down' },
+      [EffectId.RedirectUp]: { effect: 'redirect', direction: 'up' },
+      [EffectId.RedirectLeft]: { effect: 'redirect', direction: 'left' },
+      [EffectId.RedirectRight]: { effect: 'redirect', direction: 'right' },
+      [EffectId.Hole]: { effect: 'hole' },
+      [EffectId.LedgeDown]: { effect: 'ledge', direction: 'down' },
+      [EffectId.LedgeUp]: { effect: 'ledge', direction: 'up' },
+      [EffectId.LedgeLeft]: { effect: 'ledge', direction: 'left' },
+      [EffectId.LedgeRight]: { effect: 'ledge', direction: 'right' },
     }
     const effects: string[] = []
     for (let y = 0; y < mH; y++) {
@@ -378,10 +389,10 @@ ${stairStr}
       // Parse tileEffects into effectsLayer
       const effectsLayer = new Array(size).fill(0)
       const effectTypeToId: Record<string, Record<string, number>> = {
-        ice: { '': 1 },
-        redirect: { down: 2, up: 3, left: 4, right: 5 },
-        hole: { '': 6 },
-        ledge: { down: 7, up: 8, left: 9, right: 10 },
+        ice: { '': EffectId.Ice },
+        redirect: { down: EffectId.RedirectDown, up: EffectId.RedirectUp, left: EffectId.RedirectLeft, right: EffectId.RedirectRight },
+        hole: { '': EffectId.Hole },
+        ledge: { down: EffectId.LedgeDown, up: EffectId.LedgeUp, left: EffectId.LedgeLeft, right: EffectId.LedgeRight },
       }
       const effectsBlockMatch = text.match(/tileEffects:\s*\[([\s\S]*?)\]\s*,/)
       if (effectsBlockMatch) {
@@ -403,7 +414,7 @@ ${stairStr}
       // Also import legacy ledges[] as effect IDs 7-10
       const ledgesBlockMatch = text.match(/ledges:\s*\[([\s\S]*?)\]\s*,/)
       if (ledgesBlockMatch) {
-        const ledgeDirToId: Record<string, number> = { down: 7, up: 8, left: 9, right: 10 }
+        const ledgeDirToId: Record<string, number> = { down: EffectId.LedgeDown, up: EffectId.LedgeUp, left: EffectId.LedgeLeft, right: EffectId.LedgeRight }
         const lEntryRegex = /\{[^}]*tileX:\s*(\d+)[^}]*tileY:\s*(\d+)[^}]*direction:\s*'(\w+)'[^}]*\}/g
         let lm
         while ((lm = lEntryRegex.exec(ledgesBlockMatch[1])) !== null) {

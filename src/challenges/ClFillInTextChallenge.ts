@@ -31,7 +31,12 @@ export class ClFillInTextChallenge extends ChallengeBase<ClFillInTextConfig> {
     this.activeSlot = 0
     this.selectedOption = 0
     this.answered = false
+    // Shuffle option chips so the answer order isn't predictable
     this.availableOptions = [...this.config.content.exercise.options]
+    for (let i = this.availableOptions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.availableOptions[i], this.availableOptions[j]] = [this.availableOptions[j], this.availableOptions[i]]
+    }
 
     // Title
     const title = document.createElement('div')

@@ -4,12 +4,14 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
 import { GameScene } from '@/scenes/GameScene'
 import { DialogScene } from '@/scenes/DialogScene'
 import { ChallengeScene } from '@/scenes/ChallengeScene'
+import { EffectId } from '@/data/types'
 import type { MapData, Direction, TileEffectData } from '@/data/types'
 import { getAllTiles } from '@/data/tiles/TileRegistry'
 import { getAllSprites } from '@/data/sprites/SpriteRegistry'
 import { normalizeTileTextures } from '@/utils/normalizeTileTextures'
 import { normalizeSpriteTextures } from '@/utils/normalizeSpriteTextures'
-import { SaveManager } from '@/systems/SaveManager'
+import { saveManager } from '@/systems/SaveManager'
+import { SCENE } from '@/utils/constants'
 
 /**
  * Boot scene for editor test mode.
@@ -38,7 +40,7 @@ class EditorBootScene extends Phaser.Scene {
     normalizeTileTextures(this)
     normalizeSpriteTextures(this)
     const mapData = EditorBootScene.pendingMapData
-    this.scene.start('GameScene', {
+    this.scene.start(SCENE.GAME, {
       mapId: mapData.id,
       mapData,
     })
@@ -50,7 +52,7 @@ class EditorBootScene extends Phaser.Scene {
  */
 class EditorMenuScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'MenuScene' })
+    super({ key: SCENE.MENU })
   }
 
   create(): void {
@@ -63,7 +65,7 @@ class EditorMenuScene extends Phaser.Scene {
  */
 class EditorTransitionScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'TransitionScene' })
+    super({ key: SCENE.TRANSITION })
   }
 
   create(): void {
@@ -124,9 +126,8 @@ export class TestMode {
     const mapData = this.buildMapData(spawn)
 
     // Back up and clear completed challenges so test mode starts fresh
-    const save = SaveManager.getInstance()
-    this.savedChallenges = save.getCompletedChallenges()
-    save.setCompletedChallenges([])
+    this.savedChallenges = saveManager.getCompletedChallenges()
+    saveManager.setCompletedChallenges([])
 
     this.setEditorVisible(false)
     this.createTestContainer(mapData)
@@ -170,16 +171,16 @@ export class TestMode {
   private buildTileEffects(effectsLayer: number[]): TileEffectData[] {
     const effects: TileEffectData[] = []
     const idToEffect: Record<number, { effect: 'ice' | 'redirect' | 'hole' | 'ledge'; direction?: Direction }> = {
-      1: { effect: 'ice' },
-      2: { effect: 'redirect', direction: 'down' },
-      3: { effect: 'redirect', direction: 'up' },
-      4: { effect: 'redirect', direction: 'left' },
-      5: { effect: 'redirect', direction: 'right' },
-      6: { effect: 'hole' },
-      7: { effect: 'ledge', direction: 'down' },
-      8: { effect: 'ledge', direction: 'up' },
-      9: { effect: 'ledge', direction: 'left' },
-      10: { effect: 'ledge', direction: 'right' },
+      [EffectId.Ice]: { effect: 'ice' },
+      [EffectId.RedirectDown]: { effect: 'redirect', direction: 'down' },
+      [EffectId.RedirectUp]: { effect: 'redirect', direction: 'up' },
+      [EffectId.RedirectLeft]: { effect: 'redirect', direction: 'left' },
+      [EffectId.RedirectRight]: { effect: 'redirect', direction: 'right' },
+      [EffectId.Hole]: { effect: 'hole' },
+      [EffectId.LedgeDown]: { effect: 'ledge', direction: 'down' },
+      [EffectId.LedgeUp]: { effect: 'ledge', direction: 'up' },
+      [EffectId.LedgeLeft]: { effect: 'ledge', direction: 'left' },
+      [EffectId.LedgeRight]: { effect: 'ledge', direction: 'right' },
     }
     const mW = this.state.snapshot.mapWidth
     const mH = this.state.snapshot.mapHeight
@@ -255,7 +256,7 @@ export class TestMode {
     if (container) container.remove()
 
     // Restore original challenge state
-    SaveManager.getInstance().setCompletedChallenges(this.savedChallenges)
+    saveManager.setCompletedChallenges(this.savedChallenges)
 
     this.setEditorVisible(true)
 

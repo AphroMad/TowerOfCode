@@ -7,19 +7,11 @@ const DEFAULT_SAVE: SaveData = {
   completedChallenges: [],
 }
 
-export class SaveManager {
-  private static instance: SaveManager
+class SaveManagerImpl {
   private data: SaveData
 
-  private constructor() {
+  constructor() {
     this.data = this.load()
-  }
-
-  static getInstance(): SaveManager {
-    if (!SaveManager.instance) {
-      SaveManager.instance = new SaveManager()
-    }
-    return SaveManager.instance
   }
 
   private load(): SaveData {
@@ -92,3 +84,5 @@ export class SaveManager {
     this.save()
   }
 }
+
+export const saveManager = new SaveManagerImpl()

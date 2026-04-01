@@ -3,7 +3,7 @@ import type { NPC } from '@/entities/NPC'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
 import type { Player } from '@/entities/Player'
 import { DIR_OFFSETS } from '@/utils/helpers'
-import { SaveManager } from '@/systems/SaveManager'
+import { saveManager } from '@/systems/SaveManager'
 
 interface NpcState {
   npc: NPC
@@ -65,7 +65,7 @@ export class NpcBehaviorSystem {
 
   update(delta: number): void {
     if (this.frozen) return
-    const save = SaveManager.getInstance()
+    const save = saveManager
     for (const state of this.states) {
       if (state.detecting) continue
 

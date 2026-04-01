@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
 import { Player } from '@/entities/Player'
-import { I18nManager } from '@/i18n/I18nManager'
+import { i18n } from '@/i18n/I18nManager'
 import { getMapById } from '@/data/maps/MapRegistry'
 import { tileToPixel } from '@/utils/helpers'
+import { ensureSparkleTexture } from '@/utils/AnimationFactory'
 import type { GridMovementSystem } from '@/systems/GridMovementSystem'
 import type { Direction, MapData } from '@/data/types'
+import { SCENE } from '@/utils/constants'
 
 export class WarpManager {
   private scene: Phaser.Scene
@@ -26,15 +28,7 @@ export class WarpManager {
     this.mapData = mapData
     this.player = player
 
-    // Generate sparkle texture (tiny diamond shape)
-    if (!scene.textures.exists('sparkle')) {
-      const gfx = scene.make.graphics({ x: 0, y: 0 }, false)
-      gfx.fillStyle(0xffffff, 1)
-      gfx.fillRect(2, 0, 2, 6)
-      gfx.fillRect(0, 2, 6, 2)
-      gfx.generateTexture('sparkle', 6, 6)
-      gfx.destroy()
-    }
+    ensureSparkleTexture(scene)
 
     this.sparkleEmitter = scene.add.particles(0, 0, 'sparkle', {
       speed: { min: 30, max: 80 },
@@ -91,8 +85,6 @@ export class WarpManager {
     )
     if (!stair) return
 
-    const i18n = I18nManager.getInstance()
-
     if (stair.targetMapId === null) {
       this.isTransitioning = true
       this.gridMovement.freeze()
@@ -111,7 +103,7 @@ export class WarpManager {
     this.sparkleEmitter.emitParticleAt(this.player.sprite.x, this.player.sprite.y)
     const targetMap = getMapById(stair.targetMapId)
     const mapNameKey = `${stair.targetMapId.replace('-', '_')}_name`
-    this.scene.scene.launch('TransitionScene', {
+    this.scene.scene.launch(SCENE.TRANSITION, {
       mapId: stair.targetMapId,
       mapName: targetMap ? i18n.t(mapNameKey) : stair.targetMapId,
       fromDirection,

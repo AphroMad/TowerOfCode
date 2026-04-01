@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
+import { SCENE } from '@/utils/constants'
 
 interface TransitionData {
   mapId: string
@@ -10,7 +11,7 @@ interface TransitionData {
 
 export class TransitionScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'TransitionScene' })
+    super({ key: SCENE.TRANSITION })
   }
 
   create(data: TransitionData): void {
@@ -51,7 +52,7 @@ export class TransitionScene extends Phaser.Scene {
                 onComplete: () => {
                   // 4. Restart GameScene with new map, then stop self
                   // scene.start() auto-stops a running scene, avoiding race conditions
-                  this.scene.start('GameScene', { mapId, fromDirection: data.fromDirection, fromMapId: data.fromMapId })
+                  this.scene.start(SCENE.GAME, { mapId, fromDirection: data.fromDirection, fromMapId: data.fromMapId })
                   this.scene.stop()
                 },
               })

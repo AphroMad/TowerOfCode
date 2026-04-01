@@ -3,9 +3,10 @@ import { createChallenge } from '@/challenges/ChallengeRegistry'
 import type { IChallenge } from '@/challenges/IChallenge'
 import type { ChallengeConfig } from '@/data/types'
 import { getChallenge } from '@/data/challenges'
-import { SaveManager } from '@/systems/SaveManager'
-import { I18nManager } from '@/i18n/I18nManager'
+import { saveManager } from '@/systems/SaveManager'
+import { i18n } from '@/i18n/I18nManager'
 import type { HpManager } from '@/systems/HpManager'
+import { SCENE } from '@/utils/constants'
 
 interface ChallengeSceneData {
   challengeConfig: ChallengeConfig
@@ -15,7 +16,7 @@ interface ChallengeSceneData {
 
 export class ChallengeScene extends Phaser.Scene {
   private challenge: IChallenge | null = null
-  private returnScene = 'GameScene'
+  private returnScene: string = SCENE.GAME
   private challengeIds: string[] = []
   private currentStep = 0
   private stepNav: HTMLDivElement | null = null
@@ -24,13 +25,11 @@ export class ChallengeScene extends Phaser.Scene {
   private hpManager: HpManager | null = null
 
   constructor() {
-    super({ key: 'ChallengeScene' })
+    super({ key: SCENE.CHALLENGE })
   }
 
   create(data: ChallengeSceneData): void {
     const cam = this.cameras.main
-    const i18n = I18nManager.getInstance()
-
     // Clean up DOM hearts on scene shutdown (e.g. game.destroy() from editor test mode)
     this.events.once('shutdown', () => {
       if (this.stepNav) {
@@ -60,7 +59,7 @@ export class ChallengeScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(11)
 
-    this.returnScene = data.returnScene ?? 'GameScene'
+    this.returnScene = data.returnScene ?? SCENE.GAME
     this.challengeIds = data.challengeIds ?? []
 
     // Get HpManager from GameScene
@@ -86,7 +85,7 @@ export class ChallengeScene extends Phaser.Scene {
     this.currentStep = this.challengeIds.indexOf(config.id)
     if (this.currentStep === -1) this.currentStep = 0
 
-    this.challenge = createChallenge(config.type)
+    this.challenge = createChallenge(config.type, config)
     this.challenge.create(this, config, (success) => this.onChallengeComplete(success, config))
 
     if (this.challengeIds.length > 1) {
@@ -96,10 +95,10 @@ export class ChallengeScene extends Phaser.Scene {
 
   private onChallengeComplete(success: boolean, config: ChallengeConfig): void {
     if (success) {
-      SaveManager.getInstance().completeChallenge(config.id)
+      saveManager.completeChallenge(config.id)
 
       if (this.challengeIds.length > 1) {
-        const save = SaveManager.getInstance()
+        const save = saveManager
         const nextId = this.challengeIds.find(id => !save.isChallengeCompleted(id))
         if (nextId) {
           const nextConfig = getChallenge(nextId)
@@ -121,7 +120,7 @@ export class ChallengeScene extends Phaser.Scene {
       this.challenge = null
     }
 
-    this.challenge = createChallenge(config.type)
+    this.challenge = createChallenge(config.type, config)
     if (panel) {
       this.challenge.createInPanel(this, config, (success) => this.onChallengeComplete(success, config), panel)
     } else {
@@ -207,7 +206,7 @@ export class ChallengeScene extends Phaser.Scene {
       this.stepNav.remove()
     }
 
-    const save = SaveManager.getInstance()
+    const save = saveManager
     const total = this.challengeIds.length
     const step = this.currentStep
 

@@ -77,7 +77,7 @@ export class UndoManager {
   }
 
   private restore(snap: Snapshot): void {
-    this.state.mutateQuiet(d => {
+    this.state.mutateWithoutNotify(d => {
       d.mapWidth = snap.mapWidth
       d.mapHeight = snap.mapHeight
       d.groundLayer = [...snap.groundLayer]

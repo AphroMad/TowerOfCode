@@ -14,16 +14,8 @@ const locales: Record<Language, LocaleData> = {
   fr: { ...frUi, ...frMaps, ...frDialogs },
 }
 
-export class I18nManager {
-  private static instance: I18nManager
+class I18nManagerImpl {
   private language: Language = 'fr'
-
-  static getInstance(): I18nManager {
-    if (!I18nManager.instance) {
-      I18nManager.instance = new I18nManager()
-    }
-    return I18nManager.instance
-  }
 
   setLanguage(lang: Language): void {
     this.language = lang
@@ -57,3 +49,5 @@ export class I18nManager {
     return [{ speaker, text: `[${key}]` }]
   }
 }
+
+export const i18n = new I18nManagerImpl()

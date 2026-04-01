@@ -53,7 +53,7 @@ export interface ClExplanationConfig extends ClBase {
 
 export interface ClMultipleChoiceOption {
   type: 'text'
-  value: LocalizedText
+  value: LocalizedText | string
   language?: string
 }
 
@@ -120,6 +120,21 @@ export type ChallengeConfig =
   | ClChallengeConfig
 
 // --- Tile Effects ---
+
+/** Numeric IDs stored in the editor's effectsLayer array */
+export const EffectId = {
+  None: 0,
+  Ice: 1,
+  RedirectDown: 2,
+  RedirectUp: 3,
+  RedirectLeft: 4,
+  RedirectRight: 5,
+  Hole: 6,
+  LedgeDown: 7,
+  LedgeUp: 8,
+  LedgeLeft: 9,
+  LedgeRight: 10,
+} as const
 
 export type TileEffectType = 'ice' | 'redirect' | 'hole' | 'ledge'
 

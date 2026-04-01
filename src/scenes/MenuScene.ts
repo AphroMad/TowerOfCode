@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
-import { I18nManager } from '@/i18n/I18nManager'
-import { SaveManager } from '@/systems/SaveManager'
+import { i18n } from '@/i18n/I18nManager'
+import { saveManager } from '@/systems/SaveManager'
+import { SCENE } from '@/utils/constants'
 
 
 export class MenuScene extends Phaser.Scene {
@@ -10,14 +11,13 @@ export class MenuScene extends Phaser.Scene {
   private langHandler?: () => void
 
   constructor() {
-    super({ key: 'MenuScene' })
+    super({ key: SCENE.MENU })
   }
 
   create(): void {
     const cam = this.cameras.main
     const cx = cam.centerX
-    const i18n = I18nManager.getInstance()
-    const save = SaveManager.getInstance()
+    const save = saveManager
 
     i18n.setLanguage(save.getData().language)
     this.cameras.main.fadeIn(300, 26, 26, 46)
@@ -107,12 +107,12 @@ export class MenuScene extends Phaser.Scene {
   private startGame(): void {
     this.cameras.main.fadeOut(300, 26, 26, 46)
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameScene')
+      this.scene.start(SCENE.GAME)
     })
   }
 
   private newGame(): void {
-    SaveManager.getInstance().reset()
+    saveManager.reset()
     this.startGame()
   }
 }

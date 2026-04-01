@@ -4,9 +4,9 @@ import { NPC } from '@/entities/NPC'
 import { GridMovementSystem } from '@/systems/GridMovementSystem'
 import { InteractionSystem } from '@/systems/InteractionSystem'
 import { NpcBehaviorSystem } from '@/systems/NpcBehaviorSystem'
-import { SaveManager } from '@/systems/SaveManager'
+import { saveManager } from '@/systems/SaveManager'
 import { getMapById } from '@/data/maps/MapRegistry'
-import { I18nManager } from '@/i18n/I18nManager'
+import { i18n } from '@/i18n/I18nManager'
 import { getChallenge } from '@/data/challenges'
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, TILE_SIZE } from '@/config/game.config'
 import type { ChallengeConfig, MapData } from '@/data/types'
@@ -18,6 +18,7 @@ import { BlockManager } from './managers/BlockManager'
 import { HeartPickupManager } from './managers/HeartPickupManager'
 import { WarpManager } from './managers/WarpManager'
 import { Companion } from '@/entities/Companion'
+import { SCENE } from '@/utils/constants'
 
 export class GameScene extends Phaser.Scene {
   private player!: Player
@@ -41,16 +42,18 @@ export class GameScene extends Phaser.Scene {
   private companion?: Companion
 
   constructor() {
-    super({ key: 'GameScene' })
+    super({ key: SCENE.GAME })
   }
 
   create(data?: { mapId?: string; fromDirection?: 'up' | 'down'; fromMapId?: string; mapData?: MapData }): void {
     this.isDead = false
 
     // Resolve map: from direct data (test mode), then registry, then save, fallback
-    const save = SaveManager.getInstance()
+    const save = saveManager
     const mapId = data?.mapId ?? save.getData().currentMap
-    const rawMap = data?.mapData ?? getMapById(mapId) ?? getMapById('map-01')!
+    const resolved = data?.mapData ?? getMapById(mapId)
+    if (!resolved) console.warn(`Map "${mapId}" not found, falling back to map-01`)
+    const rawMap = resolved ?? getMapById('map-01')!
     this.pristineMap = JSON.stringify(rawMap)
     const mapData: MapData = JSON.parse(this.pristineMap)
     this.mapData = mapData
@@ -105,7 +108,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupCompanion(): void {
-    const spriteKey = SaveManager.getInstance().getCompanion()
+    const spriteKey = saveManager.getCompanion()
     if (!spriteKey) {
       this.companion = undefined
       return
@@ -232,7 +235,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showMapName(mapData: MapData): void {
-    const i18n = I18nManager.getInstance()
     const mapNameKey = `${mapData.id.replace('-', '_')}_name`
     const banner = this.add.text(
       this.cameras.main.centerX,
@@ -254,7 +256,7 @@ export class GameScene extends Phaser.Scene {
   private setupInputAndLifecycle(): void {
     // ESC to return to menu
     this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
-    this.escKey.on('down', () => this.scene.start('MenuScene'))
+    this.escKey.on('down', () => this.scene.start(SCENE.MENU))
 
     // Hide language toggle during gameplay
     const langBtn = document.getElementById('lang-toggle')
@@ -306,7 +308,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateGatekeepers(): void {
-    const save = SaveManager.getInstance()
+    const save = saveManager
     const allDone = this.mapData.requiredChallenges.length > 0
       && this.mapData.requiredChallenges.every(id => save.isChallengeCompleted(id))
 
@@ -333,7 +335,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.scene.pause()
-    this.scene.launch('DialogScene', {
+    this.scene.launch(SCENE.DIALOG, {
       dialogKey,
       npcName: npc.data.name,
       challengeConfig,
@@ -350,8 +352,6 @@ export class GameScene extends Phaser.Scene {
     this.gridMovement.freeze()
     this.interaction.setEnabled(false)
     this.behaviorSystem.freeze()
-
-    const i18n = I18nManager.getInstance()
 
     // DOM overlay so it renders above everything (including challenge DOM elements)
     const overlay = document.createElement('div')
@@ -383,10 +383,10 @@ export class GameScene extends Phaser.Scene {
     // Restart map after delay — restore challenge state so NPCs re-trigger
     this.time.delayedCall(2000, () => {
       overlay.remove()
-      SaveManager.getInstance().setCompletedChallenges(this.challengeStateOnEntry)
+      saveManager.setCompletedChallenges(this.challengeStateOnEntry)
       // Use pristine snapshot so NPCs/blocks/hearts are in original positions
       const cleanMap: MapData = JSON.parse(this.pristineMap)
-      this.scene.start('GameScene', { mapId: cleanMap.id, mapData: cleanMap })
+      this.scene.start(SCENE.GAME, { mapId: cleanMap.id, mapData: cleanMap })
     })
   }
 }

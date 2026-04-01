@@ -1,16 +1,23 @@
 import type Phaser from 'phaser'
 import { getAnimatedTileDefs } from '@/data/tiles/TileRegistry'
 
+interface TileRef {
+  layer: Phaser.Tilemaps.TilemapLayer
+  x: number
+  y: number
+}
+
 interface AnimEntry {
   frameGids: number[]
   currentFrame: number
+  /** Pre-built index: tiles using ANY frame GID of this animation */
+  tiles: TileRef[]
 }
 
 const DEFAULT_FRAME_DURATION = 350 // ms per frame
 
 export class AnimatedTileSystem {
   private entries: AnimEntry[] = []
-  private layers: Phaser.Tilemaps.TilemapLayer[]
   private elapsed = 0
   private frameDuration: number
 
@@ -19,7 +26,6 @@ export class AnimatedTileSystem {
     keyToGid: Map<string, number>,
     frameDuration = DEFAULT_FRAME_DURATION,
   ) {
-    this.layers = layers
     this.frameDuration = frameDuration
 
     for (const def of getAnimatedTileDefs()) {
@@ -28,7 +34,17 @@ export class AnimatedTileSystem {
         .map(k => keyToGid.get(k))
         .filter((g): g is number => g !== undefined)
       if (frameGids.length > 1) {
-        this.entries.push({ frameGids, currentFrame: 0 })
+        // Build spatial index: find all tiles that currently use any GID in this animation
+        const gidSet = new Set(frameGids)
+        const tiles: TileRef[] = []
+        for (const layer of layers) {
+          layer.forEachTile(tile => {
+            if (gidSet.has(tile.index)) {
+              tiles.push({ layer, x: tile.x, y: tile.y })
+            }
+          })
+        }
+        this.entries.push({ frameGids, currentFrame: 0, tiles })
       }
     }
   }
@@ -41,16 +57,12 @@ export class AnimatedTileSystem {
     this.elapsed -= this.frameDuration
 
     for (const entry of this.entries) {
-      const prevGid = entry.frameGids[entry.currentFrame]
       entry.currentFrame = (entry.currentFrame + 1) % entry.frameGids.length
       const nextGid = entry.frameGids[entry.currentFrame]
 
-      for (const layer of this.layers) {
-        layer.forEachTile(tile => {
-          if (tile.index === prevGid) {
-            tile.index = nextGid
-          }
-        })
+      for (const ref of entry.tiles) {
+        const tile = ref.layer.getTileAt(ref.x, ref.y)
+        if (tile) tile.index = nextGid
       }
     }
   }

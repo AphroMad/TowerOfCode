@@ -1,6 +1,13 @@
 import { ChallengeBase } from '@/challenges/ChallengeBase'
-import type { ClMultipleChoiceConfig } from '@/data/types'
+import type { ClMultipleChoiceConfig, ClMultipleChoiceOption } from '@/data/types'
 import { resolveText } from '@/utils/i18n-helpers'
+import { tokenizePython } from '@/challenges/cl-utils/ClSyntaxHighlighter'
+
+/** Resolve option value (may be LocalizedText or plain string) and strip triple backticks. */
+function resolveOptionText(option: ClMultipleChoiceOption): string {
+  const raw = typeof option.value === 'string' ? option.value : resolveText(option.value)
+  return raw.replace(/```/g, '')
+}
 
 export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceConfig> {
   private config!: ClMultipleChoiceConfig
@@ -12,6 +19,8 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
   private hintBar!: HTMLDivElement
   private optionsDiv!: HTMLDivElement
   private triedIndices = new Set<number>()
+  /** Maps display index → original index (for correctAnswer lookup after shuffle) */
+  private shuffleMap: number[] = []
 
   protected onCreate(
     _scene: Phaser.Scene,
@@ -59,11 +68,26 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     this.optionBtns = []
     const options = this.config.content.exercise.options
 
+    // Fisher-Yates shuffle of display order
+    this.shuffleMap = options.map((_, i) => i)
+    for (let i = this.shuffleMap.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.shuffleMap[i], this.shuffleMap[j]] = [this.shuffleMap[j], this.shuffleMap[i]]
+    }
+
     for (let i = 0; i < options.length; i++) {
+      const originalIdx = this.shuffleMap[i]
       const btn = document.createElement('button')
       btn.className = 'cl-btn'
-      btn.textContent = resolveText(options[i].value)
       btn.style.textAlign = 'left'
+      const text = resolveOptionText(options[originalIdx])
+      if (options[originalIdx].language) {
+        const code = document.createElement('code')
+        code.innerHTML = tokenizePython(text)
+        btn.appendChild(code)
+      } else {
+        btn.textContent = text
+      }
       btn.addEventListener('click', () => {
         if (this.answered) return
         if (this.triedIndices.has(i)) return
@@ -139,8 +163,11 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     if (this.triedIndices.has(this.selectedIndex)) return
     this.addAttempt()
 
-    const correctIdx = this.config.content.exercise.correctAnswer
-    const correct = this.selectedIndex === correctIdx
+    const originalCorrect = this.config.content.exercise.correctAnswer
+    const selectedOriginal = this.shuffleMap[this.selectedIndex]
+    const correct = selectedOriginal === originalCorrect
+    // Find which display index holds the correct answer
+    const correctDisplayIdx = this.shuffleMap.indexOf(originalCorrect)
 
     if (!correct) {
       this.triedIndices.add(this.selectedIndex)
@@ -149,7 +176,7 @@ export class ClMultipleChoiceChallenge extends ChallengeBase<ClMultipleChoiceCon
     // Show which was picked (and correct if right)
     for (let i = 0; i < this.optionBtns.length; i++) {
       this.optionBtns[i].classList.remove('selected')
-      if (correct && i === correctIdx) {
+      if (correct && i === correctDisplayIdx) {
         this.optionBtns[i].classList.add('correct')
       } else if (i === this.selectedIndex && !correct) {
         this.optionBtns[i].classList.add('incorrect')

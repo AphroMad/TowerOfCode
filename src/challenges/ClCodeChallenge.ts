@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view'
 import { keymap } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
 
-export class ClChallengeChallenge extends ChallengeBase<ClChallengeConfig> {
+export class ClCodeChallenge extends ChallengeBase<ClChallengeConfig> {
   private config!: ClChallengeConfig
   private showSolution = false
   private editor: EditorView | null = null

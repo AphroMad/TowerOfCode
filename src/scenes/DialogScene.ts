@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 import { DialogSystem } from '@/systems/DialogSystem'
-import { I18nManager } from '@/i18n/I18nManager'
+import { i18n } from '@/i18n/I18nManager'
 import type { ChallengeConfig } from '@/data/types'
+import { SCENE } from '@/utils/constants'
 
 interface DialogSceneData {
   dialogKey?: string
@@ -26,7 +27,7 @@ export class DialogScene extends Phaser.Scene {
   private noLabel = ''
 
   constructor() {
-    super({ key: 'DialogScene' })
+    super({ key: SCENE.DIALOG })
   }
 
   create(data: DialogSceneData): void {
@@ -87,7 +88,6 @@ export class DialogScene extends Phaser.Scene {
     )
 
     // Get dialog lines from i18n
-    const i18n = I18nManager.getInstance()
     const lines = data.dialogKey
       ? i18n.getDialog(data.dialogKey, data.npcName)
       : []
@@ -145,7 +145,7 @@ export class DialogScene extends Phaser.Scene {
         this.transitioning = true
         this.playCombatTransition(() => {
           this.scene.stop()
-          this.scene.launch('ChallengeScene', {
+          this.scene.launch(SCENE.CHALLENGE, {
             challengeConfig: this.sceneData.challengeConfig,
             challengeIds: this.sceneData.challengeIds,
           })
@@ -153,7 +153,7 @@ export class DialogScene extends Phaser.Scene {
       }
     } else {
       this.scene.stop()
-      this.scene.resume('GameScene')
+      this.scene.resume(SCENE.GAME)
     }
   }
 
@@ -261,8 +261,6 @@ export class DialogScene extends Phaser.Scene {
     this.inReplayPrompt = true
     this.selectedOption = 0 // default Yes
 
-    const i18n = I18nManager.getInstance()
-
     // Show prompt as regular dialog text
     this.dialogText.setText(i18n.t('challenge_replay_prompt'))
 
@@ -311,14 +309,14 @@ export class DialogScene extends Phaser.Scene {
       this.transitioning = true
       this.playCombatTransition(() => {
         this.scene.stop()
-        this.scene.launch('ChallengeScene', {
+        this.scene.launch(SCENE.CHALLENGE, {
           challengeConfig: this.sceneData.challengeConfig,
           challengeIds: this.sceneData.challengeIds,
         })
       })
     } else {
       this.scene.stop()
-      this.scene.resume('GameScene')
+      this.scene.resume(SCENE.GAME)
     }
   }
 }

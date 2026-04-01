@@ -2,7 +2,7 @@ import { type EditorState, type EntityType } from './EditorState'
 import type { UndoManager } from './UndoManager'
 import type { Direction, NPCData, NpcBehavior, TeleportRole } from '@/data/types'
 import { getAllMapIds } from '@/data/maps/MapRegistry'
-import { I18nManager } from '@/i18n/I18nManager'
+import { i18n } from '@/i18n/I18nManager'
 import { getAllChallenges } from '@/data/challenges'
 import { getSpriteKeys } from '@/data/sprites/SpriteRegistry'
 import { getTilesByCategory } from '@/data/tiles/TileRegistry'
@@ -94,7 +94,7 @@ export class EntityPanel {
         const idx = y * d.mapWidth + x
         const tileKey = d.wallsLayer[idx]
         if (tileKey === '') {
-          this.state.mutateQuiet(md => { md.selectedWallTile = null })
+          this.state.mutateWithoutNotify(md => { md.selectedWallTile = null })
           return
         }
         const title = document.createElement('div')
@@ -109,14 +109,14 @@ export class EntityPanel {
         const collision = d.wallsCollision[idx]
         this.addSelect('Collision', ['true', 'false'], String(collision), (v) => {
           this.undo.save()
-          this.state.mutateQuiet(md => { md.wallsCollision[idx] = v === 'true' })
+          this.state.mutateWithoutNotify(md => { md.wallsCollision[idx] = v === 'true' })
           this.state.emit()
           this.undo.save()
         })
 
         this.addDeleteButton(() => {
           this.undo.save()
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.wallsLayer[idx] = ''
             md.wallsCollision[idx] = true
             md.selectedWallTile = null
@@ -189,7 +189,7 @@ export class EntityPanel {
       })
 
       // Dialog key dropdown
-      const dialogKeys = ['(none)', ...I18nManager.getInstance().getDialogKeys()]
+      const dialogKeys = ['(none)', ...i18n.getDialogKeys()]
       this.addSelect('Dialog', dialogKeys, npc.dialogKey ?? '(none)', (v) => {
         npc.dialogKey = v === '(none)' ? undefined : v
         this.state.emit()

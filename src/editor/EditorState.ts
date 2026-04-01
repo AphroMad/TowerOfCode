@@ -1,4 +1,5 @@
 import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '@/config/game.config'
+import { EffectId } from '@/data/types'
 import type { Direction, HeartPickupData, NPCData, PushableBlockData, StairData, TeleportData } from '@/data/types'
 
 export type Tool = 'brush' | 'eraser' | 'entity' | 'mover'
@@ -73,11 +74,6 @@ export class EditorState {
     return this._data
   }
 
-  /** @deprecated Use snapshot for reads, mutate() for writes */
-  get data(): EditorData {
-    return this._data
-  }
-
   /** Mutate state and emit change notification */
   mutate(fn: (data: EditorData) => void): void {
     const prevLayer = this._data.activeLayer
@@ -95,7 +91,7 @@ export class EditorState {
   }
 
   /** Mutate state without emitting (for perf-sensitive updates like hover) */
-  mutateQuiet(fn: (data: EditorData) => void): void {
+  mutateWithoutNotify(fn: (data: EditorData) => void): void {
     fn(this._data)
   }
 
@@ -114,7 +110,7 @@ export class EditorState {
       activeLayer: 'ground',
       activeTool: 'brush',
       selectedTileKey: 'ground/basic/2',
-      selectedEffectId: 1,
+      selectedEffectId: EffectId.Ice,
       groundVisible: true,
       wallsVisible: true,
       entitiesVisible: true,

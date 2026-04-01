@@ -282,7 +282,7 @@ export class MoverTool {
     const mH = this.state.snapshot.mapHeight
 
     const L = this.layer
-    this.state.mutateQuiet(d => {
+    this.state.mutateWithoutNotify(d => {
       // Clear source tiles (only affected layers)
       for (let row = 0; row < r.h; row++) {
         for (let col = 0; col < r.w; col++) {

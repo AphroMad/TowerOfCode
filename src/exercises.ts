@@ -3,15 +3,15 @@ import { getAllChallenges } from '@/data/challenges'
 import { createChallenge } from '@/challenges/ChallengeRegistry'
 import type { IChallenge } from '@/challenges/IChallenge'
 import type { ChallengeConfig } from '@/data/types'
-import { SaveManager } from '@/systems/SaveManager'
-import { I18nManager } from '@/i18n/I18nManager'
+import { saveManager } from '@/systems/SaveManager'
+import { i18n } from '@/i18n/I18nManager'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/config/game.config'
 
 // ── Populate exercise table ──
 
 const challenges = getAllChallenges()
 const tbody = document.getElementById('exercise-table')!
-const lang = I18nManager.getInstance().getLanguage()
+const lang = i18n.getLanguage()
 
 challenges.forEach((config, index) => {
   const tr = document.createElement('tr')
@@ -75,8 +75,6 @@ function openChallenge(index: number) {
       create: function (this: Phaser.Scene) {
         const scene = this
         const cam = scene.cameras.main
-        const i18n = I18nManager.getInstance()
-
         // Background
         scene.add.rectangle(cam.centerX, cam.centerY, cam.width, cam.height, 0x111122)
           .setDepth(10)
@@ -89,10 +87,10 @@ function openChallenge(index: number) {
         }).setOrigin(0.5).setDepth(11)
 
         // Create challenge
-        activeChallenge = createChallenge(config.type)
+        activeChallenge = createChallenge(config.type, config)
         activeChallenge.create(scene, config, (success) => {
           if (success) {
-            SaveManager.getInstance().completeChallenge(config.id)
+            saveManager.completeChallenge(config.id)
           }
           closeChallenge()
         })

@@ -3,6 +3,7 @@ import type { UndoManager } from './UndoManager'
 import { loadAllTileImages, getTileImage } from './tileImageCache'
 import { MoverTool } from './MoverTool'
 import { EntityRenderer } from './EntityRenderer'
+import { EffectId } from '@/data/types'
 
 const TILE_SIZE = 32
 
@@ -50,7 +51,7 @@ export class EditorCanvas {
     this.state.onChange(() => {
       if (this.state.snapshot.activeTool !== 'mover') this.mover.reset()
       if (this.state.snapshot.activeLayer !== 'walls' && this.state.snapshot.selectedWallTile) {
-        this.state.mutateQuiet(d => { d.selectedWallTile = null })
+        this.state.mutateWithoutNotify(d => { d.selectedWallTile = null })
       }
       const { mapWidth, mapHeight, zoom } = this.state.snapshot
       if (mapWidth !== prevW || mapHeight !== prevH || zoom !== prevZ) {
@@ -107,7 +108,7 @@ export class EditorCanvas {
         const entity = this.state.findEntityAt(tile.x, tile.y)
         if (entity) {
           this.undo.save()
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             if (entity.type === 'player') {
               md.playerSpawn = null
             } else if (entity.type === 'npc') {
@@ -140,12 +141,12 @@ export class EditorCanvas {
         }
         this.undo.save()
         if (d.placingEntity === 'player') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.playerSpawn = { tileX: tile.x, tileY: tile.y, facing: 'down' }
           })
           this.state.selectEntity('player', 0)
         } else if (d.placingEntity === 'npc') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             const existingNames = new Set(md.npcs.map(n => n.name))
             let name = 'NPC'
             let counter = 1
@@ -164,12 +165,12 @@ export class EditorCanvas {
           })
           this.state.selectEntity('npc', this.state.snapshot.npcs.length - 1)
         } else if (d.placingEntity === 'stair') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.stairs.push({ tileX: tile.x, tileY: tile.y, targetMapId: null })
           })
           this.state.selectEntity('stair', this.state.snapshot.stairs.length - 1)
         } else if (d.placingEntity === 'teleport') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             const existingIds = new Set(md.teleports.map(t => t.id))
             let id = 'tp-1'
             let counter = 1
@@ -181,17 +182,17 @@ export class EditorCanvas {
           })
           this.state.selectEntity('teleport', this.state.snapshot.teleports.length - 1)
         } else if (d.placingEntity === 'block') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.blocks.push({ tileX: tile.x, tileY: tile.y })
           })
           this.state.selectEntity('block', this.state.snapshot.blocks.length - 1)
         } else if (d.placingEntity === 'heart') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.hearts.push({ tileX: tile.x, tileY: tile.y })
           })
           this.state.selectEntity('heart', this.state.snapshot.hearts.length - 1)
         } else if (d.placingEntity === 'idea') {
-          this.state.mutateQuiet(md => {
+          this.state.mutateWithoutNotify(md => {
             md.ideas.push({ tileX: tile.x, tileY: tile.y })
           })
           this.state.selectEntity('idea', this.state.snapshot.ideas.length - 1)
@@ -236,7 +237,7 @@ export class EditorCanvas {
 
       // Clear wall tile selection when clicking
       if (d.activeLayer === 'walls') {
-        this.state.mutateQuiet(md => { md.selectedWallTile = null })
+        this.state.mutateWithoutNotify(md => { md.selectedWallTile = null })
       }
 
       // Brush / eraser
@@ -248,13 +249,13 @@ export class EditorCanvas {
 
     this.canvas.addEventListener('mousemove', (e) => {
       const tile = this.tileFromMouse(e)
-      this.state.mutateQuiet(d => { d.hoverTile = tile })
+      this.state.mutateWithoutNotify(d => { d.hoverTile = tile })
 
       // Entity drag
       if (this.draggingEntity && tile) {
         const ent = this.draggingEntity
         if (tile.x !== ent.startX || tile.y !== ent.startY) {
-          this.state.mutateQuiet(d => {
+          this.state.mutateWithoutNotify(d => {
             if (ent.type === 'player' && d.playerSpawn) {
               d.playerSpawn.tileX = tile.x
               d.playerSpawn.tileY = tile.y
@@ -332,7 +333,7 @@ export class EditorCanvas {
     })
 
     this.canvas.addEventListener('mouseleave', () => {
-      this.state.mutateQuiet(d => { d.hoverTile = null })
+      this.state.mutateWithoutNotify(d => { d.hoverTile = null })
       if (this.draggingEntity) {
         this.draggingEntity = null
         this.undo.save()
@@ -368,7 +369,7 @@ export class EditorCanvas {
     if (d.activeTool === 'brush' && d.activeLayer !== 'effects' && d.selectedTileKey === '') return
 
     if (d.activeLayer === 'effects') {
-      const effectId = d.activeTool === 'eraser' ? 0 : d.selectedEffectId
+      const effectId = d.activeTool === 'eraser' ? EffectId.None : d.selectedEffectId
       this.state.setTile(tile.x, tile.y, effectId)
     } else {
       const tileKey = d.activeTool === 'eraser' ? '' : d.selectedTileKey
@@ -488,17 +489,22 @@ export class EditorCanvas {
     const { mapWidth, mapHeight } = this.state.snapshot
     ctx.globalAlpha = alpha
 
-    const arrows: Record<number, string> = { 2: '\u2193', 3: '\u2191', 4: '\u2190', 5: '\u2192', 7: '\u2193', 8: '\u2191', 9: '\u2190', 10: '\u2192' }
+    const arrows: Record<number, string> = {
+      [EffectId.RedirectDown]: '\u2193', [EffectId.RedirectUp]: '\u2191',
+      [EffectId.RedirectLeft]: '\u2190', [EffectId.RedirectRight]: '\u2192',
+      [EffectId.LedgeDown]: '\u2193', [EffectId.LedgeUp]: '\u2191',
+      [EffectId.LedgeLeft]: '\u2190', [EffectId.LedgeRight]: '\u2192',
+    }
 
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
         const effectId = layer[y * mapWidth + x]
-        if (effectId === 0) continue
+        if (effectId === EffectId.None) continue
 
         const dx = x * s
         const dy = y * s
 
-        if (effectId === 1) {
+        if (effectId === EffectId.Ice) {
           ctx.fillStyle = COL_EFFECT_ICE
           ctx.fillRect(dx, dy, s, s)
           ctx.fillStyle = COL_EFFECT_TEXT
@@ -506,7 +512,7 @@ export class EditorCanvas {
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText('ICE', dx + s / 2, dy + s / 2)
-        } else if (effectId === 6) {
+        } else if (effectId === EffectId.Hole) {
           ctx.fillStyle = 'rgba(34, 17, 0, 0.7)'
           ctx.fillRect(dx, dy, s, s)
           ctx.fillStyle = COL_EFFECT_TEXT
@@ -514,7 +520,7 @@ export class EditorCanvas {
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText('HOLE', dx + s / 2, dy + s / 2)
-        } else if (effectId >= 2 && effectId <= 5) {
+        } else if (effectId >= EffectId.RedirectDown && effectId <= EffectId.RedirectRight) {
           ctx.fillStyle = COL_EFFECT_REDIRECT
           ctx.fillRect(dx, dy, s, s)
           ctx.fillStyle = COL_EFFECT_TEXT
@@ -522,7 +528,7 @@ export class EditorCanvas {
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText(arrows[effectId], dx + s / 2, dy + s / 2)
-        } else if (effectId >= 7 && effectId <= 10) {
+        } else if (effectId >= EffectId.LedgeDown && effectId <= EffectId.LedgeRight) {
           ctx.fillStyle = 'rgba(220, 160, 40, 0.35)'
           ctx.fillRect(dx, dy, s, s)
           ctx.fillStyle = COL_EFFECT_TEXT

@@ -97,16 +97,13 @@ export class ChallengeScene extends Phaser.Scene {
     if (success) {
       saveManager.completeChallenge(config.id)
 
-      if (this.challengeIds.length > 1) {
-        const save = saveManager
-        const nextId = this.challengeIds.find(id => !save.isChallengeCompleted(id))
-        if (nextId) {
-          const nextConfig = getChallenge(nextId)
-          if (nextConfig) {
-            this.currentStep = this.challengeIds.indexOf(nextId)
-            setTimeout(() => this.chainNextChallenge(nextConfig), 50)
-            return
-          }
+      const nextStep = this.currentStep + 1
+      if (nextStep < this.challengeIds.length) {
+        const nextConfig = getChallenge(this.challengeIds[nextStep])
+        if (nextConfig) {
+          this.currentStep = nextStep
+          setTimeout(() => this.chainNextChallenge(nextConfig), 50)
+          return
         }
       }
     }
